@@ -1,0 +1,70 @@
+.all-movie-data-holder {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  height: 100%;
+  background-position: 50%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 2em;
+  img {
+    position: relative;
+    height: 100%;
+    min-width: 280px;
+    max-width: 300px;
+    margin: 1em;
+    border-radius: 10px;
+  }
+  .data-text-holder {
+    position: relative;
+    display: flex;
+    flex-flow: column;
+    max-width: 600px;
+    min-width: 300px;
+    color: $white;
+    background-color: $main-color-blur;
+    border-radius: 10px;
+    padding: 2em;
+    h2 {
+      margin-top: 0;
+    }
+    #vote {
+      margin-bottom: 0;
+    }
+    p {
+      text-align: justify;
+      &::before {
+        content: "overview : ";
+        display: block;
+        margin-bottom: 0.5em;
+        font-size: 1.1em;
+      }
+    }
+    #vote {
+      font-size: 16px;
+      &::before {
+        content: "vote average : ";
+        font-size: 16px;
+      }
+    }
+    #date {
+      font-size: 16px;
+      &::before {
+        content: "release date : ";
+      }
+    }
+    iframe {
+      position: relative;
+      max-width: 600px;
+      width: 90%;
+      min-height: 400px;
+      display: block;
+      margin: 1em auto;
+      border-radius: 10px;
+    }
+  }
+}

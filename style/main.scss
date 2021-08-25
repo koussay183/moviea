@@ -1,0 +1,232 @@
+@import "./colors-fonts";
+@import "./trend";
+@import "./preloader";
+@import "./res";
+body,
+html {
+  h1,
+  h2,
+  h3 {
+    font-size: 2.2rem;
+  }
+}
+body {
+  overflow: hidden;
+}
+html {
+  scroll-behavior: smooth;
+}
+a {
+  text-decoration: none;
+  color: $white;
+}
+body {
+  background: #cddada;
+}
+* {
+  box-sizing: border-box;
+  text-transform: capitalize;
+  font-family: $font;
+}
+body {
+  margin: 0;
+  padding: 0;
+}
+// nav bar style
+nav {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 75px;
+  width: 100%;
+  padding: 0 4em;
+  background-color: $main-color;
+  h1 {
+    font-size: 2em;
+    color: $white;
+    letter-spacing: 3px;
+    cursor: pointer;
+    font-family: $logo-font;
+  }
+  ul {
+    list-style: none;
+    display: none;
+    align-items: center;
+    color: white;
+    li {
+      margin: 0 1em;
+      cursor: pointer;
+      font-weight: bolder;
+    }
+  }
+}
+.search-holder {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 2em 0 0 0;
+  span {
+    width: 50%;
+    max-width: 600px;
+    min-width: 300px;
+    height: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: $white;
+    border-radius: 50px;
+    padding: 0 0.5em 0 1em;
+    button {
+      border: none;
+      outline: none;
+      background-color: transparent;
+      cursor: pointer;
+    }
+    input {
+      flex-grow: 1;
+      outline: 0;
+      border: 0;
+      font-size: 16px;
+    }
+  }
+}
+// trend section style
+.trend {
+  width: 90%;
+  max-width: 1500px;
+  margin-top: 4em;
+  h1 {
+    font-family: $font;
+    color: $main-color;
+  }
+}
+.glider {
+  display: flex;
+  flex-flow: row;
+}
+.film-card {
+  position: relative;
+  display: flex;
+  width: fit-content;
+  margin: 1em;
+  box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px,
+    rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+  max-height: 500px;
+  overflow: hidden;
+  img {
+    position: relative;
+    height: 100%;
+    min-width: 280px;
+    max-width: 300px;
+    transition: transform 3s ease;
+  }
+  span {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-block;
+    width: 50px;
+    min-height: 20px;
+    font-size: 15px;
+    background-color: $main-color;
+    color: $white;
+    text-align: center;
+    transform: translate(-35px, 15px) rotate(0deg);
+    border-radius: 50px;
+  }
+}
+#poster-img:hover {
+  opacity: 0.9;
+  cursor: pointer;
+}
+.menu {
+  position: absolute;
+  width: 100%;
+  min-height: 0vh;
+  height: 0%;
+  overflow: hidden;
+  background-color: $main-color;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  text-align: left;
+  transition: min-height 0.5s ease;
+  padding: 0 0 0 4em;
+  ul {
+    list-style: none;
+    color: $white;
+    font-size: 2em;
+    padding: 0;
+    li {
+      margin: 1em 0;
+      cursor: pointer;
+      font-weight: bolder;
+    }
+  }
+}
+.off {
+  min-height: 0;
+}
+.on {
+  min-height: 50vh;
+}
+.rotate {
+  transform: rotate(-30deg);
+}
+.hide {
+  display: none;
+}
+nav {
+  div {
+    position: relative;
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+    background-color: transparent;
+    cursor: pointer;
+    span {
+      width: 50px;
+      height: 5px;
+      margin: 0.25em;
+      display: inline-block;
+      background-color: $white;
+      border-radius: 50px;
+      transition: transform 0.1s ease;
+    }
+  }
+}
+.foryou {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: auto;
+  flex-flow: row wrap;
+  padding: 2em 0 1em 0;
+  color: $main-color;
+  justify-content: center;
+}
+// hover effects
+.film-card:hover img {
+  transform: scale(1.1);
+}
+// responsive
+@media (min-width: 658px) {
+  nav {
+    div {
+      display: none;
+    }
+    ul {
+      display: flex;
+    }
+  }
+}
+@media (max-width: 658px) {
+  nav {
+    padding: 0 2em;
+  }
+}
