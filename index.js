@@ -12,6 +12,7 @@ app.use(function (req, res, next) {
     );
     next();
 });
+
 app.use(express.static(path.join(__dirname, 'build')));
 
 // Handle React routing, return all requests to React app
@@ -48,11 +49,7 @@ app.get('*', async (req, res) => {
         }
     }
 
-    // if nothing changed !
-    final = final.replace("__DESCRIPTION__","With moviea.tn you can watch free movies online anytime, on any device. It's never been easier to stream movies so get started. | movies | tv shows | movie | free movies | watch free | film complete | film | stream")
-    final = final.replace("__FB_DESCRIPTION__","Watch Movies | Tv-Shows Online Free")
-    final = final.replace('__POSTER__',"https://assets.nflxext.com/ffe/siteui/vlv3/b85863b0-0609-4dba-8fe8-d0370b25b9ee/e7e23acb-d3f4-4c16-87da-22b5e0289506/TN-en-20230731-popsignuptwoweeks-perspective_alpha_website_large.jpg")
-    final = final.replace("__FB_TITLE__","https://assets.nflxext.com/ffe/siteui/vlv3/b85863b0-0609-4dba-8fe8-d0370b25b9ee/e7e23acb-d3f4-4c16-87da-22b5e0289506/TN-en-20230731-popsignuptwoweeks-perspective_alpha_website_large.jpg")
+    
     res.send(final)
 });
 
