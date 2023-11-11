@@ -20,6 +20,12 @@ app.get("*",async (req, res) => {
 
     let final = global;
 
+    const mainTags = {
+      title : "Watch Movies | Tv-Shows Online Free",
+      desc : "With moviea.tn you can watch free movies online anytime, on any device. It's never been easier to stream movies so get started. | movies | tv shows | movie | free movies | watch free | film complete | film | stream",
+      poster : "https://assets.nflxext.com/ffe/siteui/vlv3/b85863b0-0609-4dba-8fe8-d0370b25b9ee/e7e23acb-d3f4-4c16-87da-22b5e0289506/TN-en-20230731-popsignuptwoweeks-perspective_alpha_website_large.jpg"
+    }
+
     const routeHandlers = [
         {
           regex: /^\/all-about\/movie\/\d+$/,
@@ -31,10 +37,52 @@ app.get("*",async (req, res) => {
             const result = await fetch("https://api.themoviedb.org/3/movie/"+movieId+"?api_key=20108f1c4ed38f7457c479849a9999cc")
             const info = await result.json();
 
-            final = final.replace("With moviea.tn you can watch free movies online anytime, on any device. It's never been easier to stream movies so get started. | movies | tv shows | movie | free movies | watch free | film complete | film | stream",info?.overview)
-            final = final.replace("With moviea.tn you can watch free movies online anytime, on any device. It's never been easier to stream movies so get started. | movies | tv shows | movie | free movies | watch free | film complete | film | stream",info?.overview)
-            final = final.replace('https://assets.nflxext.com/ffe/siteui/vlv3/b85863b0-0609-4dba-8fe8-d0370b25b9ee/e7e23acb-d3f4-4c16-87da-22b5e0289506/TN-en-20230731-popsignuptwoweeks-perspective_alpha_website_large.jpg',"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
-            final = final.replace("Watch Movies | Tv-Shows Online Free",info?.title + " | On Moviea Now")
+            final = final.replace(mainTags.desc,info?.overview)
+            final = final.replace(mainTags.desc,info?.overview)
+            final = final.replace(mainTags.poster,"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
+            final = final.replace(mainTags.title,info?.title + " | On Moviea Now")
+            
+            res.send(final);
+          }
+        },
+        {
+          regex: /^\/all-about\/tv\/\d+$/,
+          handler: async (req, res) => {
+            // getting the id of the movie
+            const match = req.path.match(/\d+$/);
+            const movieId = match ? match[0] : null;
+            // fetch tmdb api
+            const result = await fetch("https://api.themoviedb.org/3/tv/"+movieId+"?api_key=20108f1c4ed38f7457c479849a9999cc")
+            const info = await result.json();
+
+            final = final.replace(mainTags.desc,info?.overview)
+            final = final.replace(mainTags.desc,info?.overview)
+            final = final.replace(mainTags.poster,"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
+            final = final.replace(mainTags.title,info?.name + " | On Moviea Now")
+            
+            res.send(final);
+          }
+        }
+        ,
+        {
+          regex: /^\/tn\/tv\/\d+$/,
+          handler: async (req, res) => {
+            // getting the id of the movie
+            console.log("eee");
+            const match = req.path.match(/\d+$/);
+            const tvId = match ? match[0] : null;
+            // fetch tmdb api
+            const result = await fetch(
+              `https://content.shofha.com/api/mobile/contentFiles/${tvId}?subscriberId=8765592`,
+              { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj" ,"platform":1} }
+            )
+  
+            const info = await result.json();
+
+            final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
+            final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
+            final = final.replace(mainTags.poster,info?.previewImageUrl)
+            final = final.replace(mainTags.title,info?.name_ar?.replaceAll('"',"'") + " | On Moviea Now")
             
             res.send(final);
           }
