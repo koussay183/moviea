@@ -1,0 +1,35 @@
+{
+  "files": {
+    "main.css": "./static/css/main.82b85ffb.css",
+    "main.js": "./static/js/main.b0ffac0e.js",
+    "static/css/420.79bd4081.chunk.css": "./static/css/420.79bd4081.chunk.css",
+    "static/js/420.40158ad6.chunk.js": "./static/js/420.40158ad6.chunk.js",
+    "static/js/530.88643dcd.chunk.js": "./static/js/530.88643dcd.chunk.js",
+    "static/js/957.77333fc3.chunk.js": "./static/js/957.77333fc3.chunk.js",
+    "static/js/492.6fa04b17.chunk.js": "./static/js/492.6fa04b17.chunk.js",
+    "static/js/300.496f1279.chunk.js": "./static/js/300.496f1279.chunk.js",
+    "static/js/528.bdb9b711.chunk.js": "./static/js/528.bdb9b711.chunk.js",
+    "static/js/197.c65e8a47.chunk.js": "./static/js/197.c65e8a47.chunk.js",
+    "static/js/901.6c4e20c1.chunk.js": "./static/js/901.6c4e20c1.chunk.js",
+    "static/css/521.ef8a0346.chunk.css": "./static/css/521.ef8a0346.chunk.css",
+    "static/js/521.39b5610c.chunk.js": "./static/js/521.39b5610c.chunk.js",
+    "static/js/569.fa8687c0.chunk.js": "./static/js/569.fa8687c0.chunk.js",
+    "static/js/916.804b2c53.chunk.js": "./static/js/916.804b2c53.chunk.js",
+    "static/js/668.11aa677b.chunk.js": "./static/js/668.11aa677b.chunk.js",
+    "static/js/512.cc7e9de3.chunk.js": "./static/js/512.cc7e9de3.chunk.js",
+    "static/js/851.7ef07f5e.chunk.js": "./static/js/851.7ef07f5e.chunk.js",
+    "static/js/838.d8effa50.chunk.js": "./static/js/838.d8effa50.chunk.js",
+    "static/media/empty.svg": "./static/media/empty.af20138dc7405f4afbeb2d83ae9e923d.svg",
+    "static/media/LogoSvg.svg": "./static/media/LogoSvg.1b7d85fa54329a9fb61c9da2941961f5.svg",
+    "static/media/search.svg": "./static/media/search.2c19e67fbf22fbfeb1d92652e431e5ce.svg",
+    "static/media/slick.svg": "./static/media/slick.2630a3e3eab21c607e21.svg",
+    "static/media/slick.eot": "./static/media/slick.a4e97f5a2a64f0ab1323.eot",
+    "static/media/slick.ttf": "./static/media/slick.c94f7671dcc99dce43e2.ttf",
+    "index.html": "./index.html",
+    "static/media/slick.woff": "./static/media/slick.295183786cd8a1389865.woff"
+  },
+  "entrypoints": [
+    "static/css/main.82b85ffb.css",
+    "static/js/main.b0ffac0e.js"
+  ]
+}

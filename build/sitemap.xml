@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+
+
+<url>
+  <loc>https://moviea.tn/</loc>
+  <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/</loc>
+  <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/all-movies</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/28/Action</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/12/Adventure</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/35/Comedy</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/10751/Family</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/80/Crime</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/27/Horror</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/discover/genre/10749/Romance</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+
+<url>
+  <loc>https://moviea.tn/#/all-about/tv/100088</loc>
+ <lastmod>2023-01-18T11:02:38+00:00</lastmod>
+</url>
+</urlset>
