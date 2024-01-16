@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.css": "./static/css/main.bd464b5b.css",
-    "main.js": "./static/js/main.4c80ee84.js",
+    "main.css": "./static/css/main.ffcaee24.css",
+    "main.js": "./static/js/main.1e592f9b.js",
     "static/css/420.79bd4081.chunk.css": "./static/css/420.79bd4081.chunk.css",
-    "static/js/420.60822ea9.chunk.js": "./static/js/420.60822ea9.chunk.js",
-    "static/js/530.c45560f4.chunk.js": "./static/js/530.c45560f4.chunk.js",
+    "static/js/420.dd4d1394.chunk.js": "./static/js/420.dd4d1394.chunk.js",
+    "static/js/530.e5502740.chunk.js": "./static/js/530.e5502740.chunk.js",
     "static/js/957.ee23eb38.chunk.js": "./static/js/957.ee23eb38.chunk.js",
     "static/js/492.98eca786.chunk.js": "./static/js/492.98eca786.chunk.js",
     "static/js/300.36157072.chunk.js": "./static/js/300.36157072.chunk.js",
@@ -29,7 +29,7 @@
     "static/media/slick.woff": "./static/media/slick.295183786cd8a1389865.woff"
   },
   "entrypoints": [
-    "static/css/main.bd464b5b.css",
-    "static/js/main.4c80ee84.js"
+    "static/css/main.ffcaee24.css",
+    "static/js/main.1e592f9b.js"
   ]
 }
