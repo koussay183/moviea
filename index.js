@@ -5,7 +5,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Origin", "https://moviea.tn");
     res.header(
       "Access-Control-Allow-Headers",
       "Origin, X-Requested-With, Content-Type, Accept"
@@ -99,6 +99,7 @@ app.get("*",async (req, res) => {
                   <p>${info?.description_ar?.replaceAll('"',"'")}</p>
                   <img width="500" height="250" src="${info?.previewImageUrl}" alt=${info?.name_ar?.replaceAll('"',"'")}></img>
                   <a href="https://moviea.tn/tn/tv/${tvId}">Watch ${info?.name_ar?.replaceAll('"',"'").replaceAll('"',"'")} Free</a>
+                  <video controls="" width="100%" height="400px" class="hslPlayer" id="hlsPlayer" style="border-radius: 10px;" src="${info?.contentFilesEpisodesDTOs[0]?.contentUrl}"></video>
               </article>
             </main>`  
             final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
