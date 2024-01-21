@@ -47,7 +47,7 @@ app.get("*",async (req, res) => {
             </main>`
             final = final.replace(mainTags.desc,info?.overview)
             final = final.replace(mainTags.desc,info?.overview)
-            
+
             final = final.replace('href="https://moviea.tn"',`href="https://moviea.tn${req.path}"`)
             final = final.replace('content="https://moviea.tn"',`content="https://moviea.tn${req.path}"`)
 
@@ -78,6 +78,7 @@ app.get("*",async (req, res) => {
             final = final.replace(mainTags.desc,info?.overview)
             final = final.replace(mainTags.desc,info?.overview)
             final = final.replace('href="https://moviea.tn"',`href="https://moviea.tn${req.path}"`)
+            final = final.replace('content="https://moviea.tn"',`content="https://moviea.tn${req.path}"`)
             final = final.replace(mainTags.poster,"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
             final = final.replace(mainTags.title,info?.name + " | On Moviea Now")
             final = final.replace(mainTags.siteTitle,info?.name + " | On Moviea Now")
@@ -111,6 +112,7 @@ app.get("*",async (req, res) => {
             final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
             final = final.replace(mainTags.poster,info?.previewImageUrl)
             final = final.replace('href="https://moviea.tn"',`href="https://moviea.tn${req.path}"`)
+            final = final.replace('content="https://moviea.tn"',`content="https://moviea.tn${req.path}"`)
             final = final.replace(mainTags.title,info?.name_ar?.replaceAll('"',"'") + " | On Moviea Now")
             final = final.replace(mainTags.siteTitle,info?.name_ar?.replaceAll('"',"'") + " | On Moviea Now")
             final = final.replace("__HTML__",template)
