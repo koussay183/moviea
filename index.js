@@ -23,6 +23,7 @@ app.get("*",async (req, res) => {
     const mainTags = {
       title : "Watch Movies | Tv-Shows Online Free",
       siteTitle : "Moviea | Watch Free",
+      conic : '<link rel="canonical" href="https://moviea.tn/" />',
       desc : "With moviea.tn you can watch free movies online anytime, on any device. It's never been easier to stream movies so get started. | movies | tv shows | movie | free movies | watch free | film complete | film | stream",
       poster : "https://assets.nflxext.com/ffe/siteui/vlv3/b85863b0-0609-4dba-8fe8-d0370b25b9ee/e7e23acb-d3f4-4c16-87da-22b5e0289506/TN-en-20230731-popsignuptwoweeks-perspective_alpha_website_large.jpg"
     }
@@ -47,6 +48,7 @@ app.get("*",async (req, res) => {
             </main>`
             final = final.replace(mainTags.desc,info?.overview)
             final = final.replace(mainTags.desc,info?.overview)
+            final = final.replace(mainTags.conic,`<link rel="canonical" href="https://moviea.tn${req.path}" />`)
             final = final.replace(mainTags.poster,"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
             final = final.replace(mainTags.title,info?.title + " | On Moviea Now")
             final = final.replace(mainTags.siteTitle,info?.title + " | On Moviea Now")
