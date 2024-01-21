@@ -47,7 +47,10 @@ app.get("*",async (req, res) => {
             </main>`
             final = final.replace(mainTags.desc,info?.overview)
             final = final.replace(mainTags.desc,info?.overview)
+            
             final = final.replace('href="https://moviea.tn"',`href="https://moviea.tn${req.path}"`)
+            final = final.replace('content="https://moviea.tn"',`content="https://moviea.tn${req.path}"`)
+
             final = final.replace(mainTags.poster,"https://image.tmdb.org/t/p/original/"+info?.backdrop_path)
             final = final.replace(mainTags.title,info?.title + " | On Moviea Now")
             final = final.replace(mainTags.siteTitle,info?.title + " | On Moviea Now")
