@@ -120,8 +120,8 @@ app.get("*",async (req, res) => {
               </article>
             </main>`
 
-            SEOdesc = info?.contentSEO?.replace("شوفها","Moviea")
-            SEOtitle = info?.titleArSEO?.replace("شوفها","Moviea")
+            SEOdesc = info?.contentSEO?.descriptionArSEO?.replace("شوفها","Moviea")
+            SEOtitle = info?.contentSEO?.titleArSEO?.replace("شوفها","Moviea")
 
             final = final.replace(mainTags.desc,SEOdesc)
             final = final.replace(mainTags.desc,SEOdesc)
