@@ -13,6 +13,17 @@ app.use(function (req, res, next) {
     next();
 });
 
+// Assuming you have a function to generate a unique version or timestamp
+function generateVersion() {
+  return Date.now(); // Example: Using current timestamp
+}
+
+// Example in Express route serving your JavaScript file
+app.get('/bundle.js', (req, res) => {
+  const version = generateVersion();
+  res.sendFile(path.join(__dirname, 'path/to/your/bundle.js') + `?v=${version}`);
+});
+
 app.use(express.static(path.join(__dirname, 'build')));
 // Handle React routing, return all requests to React app
 app.get("*",async (req, res) => {
@@ -107,14 +118,21 @@ app.get("*",async (req, res) => {
                   <a href="https://moviea.tn/tn/tv/${tvId}">Watch ${info?.name_ar?.replaceAll('"',"'").replaceAll('"',"'")} Free</a>
                   <video controls="" width="100%" height="400px" class="hslPlayer" id="hlsPlayer" style="border-radius: 10px;" src="${info?.contentFilesEpisodesDTOs[0]?.contentUrl}"></video>
               </article>
-            </main>`  
-            final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
-            final = final.replace(mainTags.desc,info?.description_ar?.replaceAll('"',"'"))
+            </main>`
+
+            SEOdesc = info?.contentSEO?.replace("شوفها","Moviea")
+            SEOtitle = info?.titleArSEO?.replace("شوفها","Moviea")
+
+            final = final.replace(mainTags.desc,SEOdesc)
+            final = final.replace(mainTags.desc,SEOdesc)
+
             final = final.replace(mainTags.poster,info?.previewImageUrl)
+
             final = final.replace('href="https://moviea.tn"',`href="https://moviea.tn${req.path}"`)
             final = final.replace('content="https://moviea.tn"',`content="https://moviea.tn${req.path}"`)
-            final = final.replace(mainTags.title,info?.name_ar?.replaceAll('"',"'") + " | On Moviea Now")
-            final = final.replace(mainTags.siteTitle,info?.name_ar?.replaceAll('"',"'") + " | On Moviea Now")
+
+            final = final.replace(mainTags.title,SEOtitle)
+            final = final.replace(mainTags.siteTitle,SEOtitle)
             final = final.replace("__HTML__",template)
             res.send(final);
           }
