@@ -1,49 +1,101 @@
 const { parentPort } = require("worker_threads");
 const cheerio = require("cheerio");
-const request = require("request");
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
+// Configure timeout and retry logic
+const TIMEOUT_MS = 8000;
+const MAX_RETRIES = 2;
 
-let url = "https://www.rikatv.com/index.php";
+const headers = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+};
 
-request(url, (error, response, html) => {
- 
-  if (!error && response.statusCode == 200) {
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: { ...headers, ...options.headers }
+        });
+        clearTimeout(timeout);
+        return response;
+    } catch (error) {
+        clearTimeout(timeout);
+        throw error;
+    }
+}
 
-    const $ = cheerio.load(html);
-    let productItems = [];
-
-    $('.product__item').each((index, element) => {
-      // Extract id from the href attribute of the anchor tag inside product__item
-    const href = $(element).find('a').eq(0).attr('href');
-    let id = null;
-    if (href) {
-        const match = href.match(/id=(\d+)/);
-        if (match) {
-            id = match[1];
+async function retryFetch(url, options = {}) {
+    let lastError;
+    
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            return await fetchWithTimeout(url, options);
+        } catch (error) {
+            lastError = error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
         }
     }
-  
-    let title = null;
-    if (href) {
-        const matchTitle = href.match(/&slug=(.*)/);
-        if (matchTitle) {
-            title = decodeURIComponent(matchTitle[1]);
+    throw lastError;
+}
+
+async function scrapeRamadanShows() {
+    try {
+        const url = "https://tv.cimaclub.vip/category/%D9%85%D8%B3%D9%84%D8%B3%D9%84%D8%A7%D8%AA-%D8%B1%D9%85%D8%B6%D8%A7%D9%86-2024/";
+        
+        const response = await retryFetch(url);
+        const html = await response.text();
+        const $ = cheerio.load(html, { decodeEntities: false });
+        
+        const shows = [];
+        const articles = $("article");
+        
+        articles.each((i, el) => {
+            const link = $(el).find("a").attr("href");
+            const image = $(el).find("img").attr("src");
+            const title = $(el).find("h1.title").text().trim();
+            const episode = $(el).find("episode").text().trim();
+            
+            if (link && title) {
+                shows.push({
+                    link,
+                    image,
+                    title,
+                    episode
+                });
+            }
+        });
+        
+        if (!shows.length) {
+            parentPort.postMessage({ data: "No shows found" });
+            return;
         }
+
+        parentPort.postMessage({ data: shows });
+
+    } catch (error) {
+        parentPort.postMessage({ 
+            data: "Error", 
+            error: error.message 
+        });
     }
-  
-      // Extract background image style
-      // Extract background image URL directly from the data-setbg attribute of .set-bg
-      const bgImageUrl = $(element).find('.set-bg').attr('data-setbg');
-  
-      // Push extracted information into the productItems array
-      productItems.push({
-          id,
-          title,
-          bgImageUrl
-      });
-  });
-    parentPort.postMessage({ data: productItems });
-  } else {
-    parentPort.postMessage({ data: "Error" });
-  }
-});
+}
+
+// Cleanup function for worker
+function cleanup() {
+    process.removeAllListeners();
+    if (parentPort) {
+        parentPort.close();
+    }
+}
+
+// Handle worker termination
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+
+// Start scraping
+scrapeRamadanShows();

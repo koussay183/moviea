@@ -1,193 +1,188 @@
 const { parentPort, workerData } = require("worker_threads");
 const cheerio = require("cheerio");
-const request = require("request");
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-const url = `https://mycima.tv/search/${workerData?.series_name}/list`;
+// Configure timeout and retry logic
+const TIMEOUT_MS = 8000;
+const MAX_RETRIES = 2;
 
-try {
-  request(url, (error, response, html) => {
+const headers = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+};
+
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
     
-    if (!error && response.statusCode == 200) {
-      const $ = cheerio.load(html);
-
-      let recommended_series = $(".Thumb--GridItem");
-
-      let links_of_recommended_series = [];
-
-      for (let i = 0; i < recommended_series.length; i++) {
-        const link = $(recommended_series[i]).find("a").attr("href");
-        links_of_recommended_series.push(link);
-      }
-
-      try {
-        request(links_of_recommended_series[0]?.replace("weciimaa.online","mycima.tv"), (error, response, html) => {
-          if (!error && response.statusCode == 200) {
-            const $ = cheerio.load(html);
-            let temp_list = $(".List--Seasons--Episodes");
-
-            if (!temp_list.length) {
-              temp_list = $(".Seasons--Episodes");
-              let episodes_links = temp_list.find("a");
-
-              request(
-                episodes_links[episodes_links.length - workerData?.episode]
-                  ?.attribs?.href?.replace("weciimaa.online","mycima.tv"),
-                (error, response, html) => {
-                  if (!error && response.statusCode == 200) {
-                    const $ = cheerio.load(html);
-                    const link = $("iframe[name='watch']").attr(
-                      "data-lazy-src"
-                    );
-                    let download_links = $(
-                      "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(2)"
-                    ).find("li");
-                    let download_ep_links = [];
-
-                    download_links.each((i, el) => {
-                      let download_url = $(el).find("a").attr("href");
-                      let quality = $(el).find("a").find("quality").text();
-                      let resolution = $(el)
-                        .find("a")
-                        .find("resolution")
-                        .text();
-
-                      download_ep_links.push({
-                        download_url,
-                        quality,
-                        resolution,
-                      });
-                    });
-
-                    let download_season = $(
-                      "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(4)"
-                    ).find("li");
-                    let download_season_links = [];
-                    download_season.each((i, el) => {
-                      let download_url = $(el).find("a").attr("href");
-                      let quality = $(el).find("a").find("quality").text();
-                      let resolution = $(el)
-                        .find("a")
-                        .find("resolution")
-                        .text();
-
-                      download_season_links.push({
-                        download_url,
-                        quality,
-                        resolution,
-                      });
-                    });
-                    parentPort.postMessage({
-                      data: link,
-                      download_ep_links: download_ep_links,
-                      download_season_links:
-                        download_season_links ||
-                        "We Dont Have Download All The Season Of This Tv Show Yet",
-                    });
-                  } else {
-                    parentPort.postMessage({ error: "true" });
-                  }
-                }
-              );
-            } else {
-              const seasons_links = temp_list.find("a");
-              const season = parseInt(workerData?.season);
-              if (season > seasons_links.length)
-                return res.status(400).json({ error: "Season Not Found !" });
-
-              request(
-                seasons_links[season - 1]?.attribs?.href?.replace("weciimaa.online","mycima.tv"),
-                (error, response, html) => {
-                  if (!error && response.statusCode == 200) {
-                    let $ = cheerio.load(html);
-
-                    temp_list = $(".Episodes--Seasons--Episodes");
-                    let episodes_links = temp_list.find("a");
-
-                    if (workerData?.episode > episodes_links.length)
-                      return res
-                        .status(400)
-                        .json({ error: "Episode Not Found !" });
-
-                    request(
-                      episodes_links[
-                        episodes_links.length - workerData?.episode
-                      ]?.attribs?.href?.replace("weciimaa.online","mycima.tv"),
-                      (error, response, html) => {
-                        if (!error && response.statusCode == 200) {
-                          const $ = cheerio.load(html);
-                          const link = $("iframe[name='watch']").attr(
-                            "data-lazy-src"
-                          );
-
-                          let download_links = $(
-                            "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(2)"
-                          ).find("li");
-                          let download_ep_links = [];
-
-                          download_links.each((i, el) => {
-                            let download_url = $(el).find("a").attr("href");
-                            let quality = $(el)
-                              .find("a")
-                              .find("quality")
-                              .text();
-                            let resolution = $(el)
-                              .find("a")
-                              .find("resolution")
-                              .text();
-
-                            download_ep_links.push({
-                              download_url,
-                              quality,
-                              resolution,
-                            });
-                          });
-
-                          let download_season = $(
-                            "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(4)"
-                          ).find("li");
-                          let download_season_links = [];
-                          download_season.each((i, el) => {
-                            let download_url = $(el).find("a").attr("href");
-                            let quality = $(el)
-                              .find("a")
-                              .find("quality")
-                              .text();
-                            let resolution = $(el)
-                              .find("a")
-                              .find("resolution")
-                              .text();
-
-                            download_season_links.push({
-                              download_url,
-                              quality,
-                              resolution,
-                            });
-                          });
-                          parentPort.postMessage({
-                            data: link,
-                            download_ep_links: download_ep_links,
-                            download_season_links:
-                              download_season_links ||
-                              "We Dont Have Download All The Season Of This Tv Show Yet",
-                          });
-                        }
-                      }
-                    );
-                  }
-                }
-              );
-            }
-          } else {
-            parentPort.postMessage({ error: "Error" });
-          }
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: { ...headers, ...options.headers }
         });
-      } catch (err) {
-        parentPort.postMessage({ data: "Not Found" });
-      }
-    } else {
-      parentPort.postMessage({ data: "Not Found" });
+        clearTimeout(timeout);
+        return response;
+    } catch (error) {
+        clearTimeout(timeout);
+        throw error;
     }
-  });
-} catch (err) {
-  parentPort.postMessage({ data: "Not Found" });
 }
+
+async function retryFetch(url, options = {}) {
+    let lastError;
+    
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            return await fetchWithTimeout(url, options);
+        } catch (error) {
+            lastError = error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+    }
+    throw lastError;
+}
+
+async function extractDownloadLinks($, selector) {
+    const downloadLinks = [];
+    $(selector).find("li").each((i, el) => {
+        const download_url = $(el).find("a").attr("href");
+        const quality = $(el).find("a").find("quality").text();
+        const resolution = $(el).find("a").find("resolution").text();
+        if (download_url) {
+            downloadLinks.push({ download_url, quality, resolution });
+        }
+    });
+    return downloadLinks;
+}
+
+async function scrapeTVShow() {
+    try {
+        const { series_name, episode, season } = workerData;
+        const searchUrl = `https://mycima.tv/search/${series_name}/list`;
+        
+        // Initial search for the TV show
+        const searchResponse = await retryFetch(searchUrl);
+        const searchHtml = await searchResponse.text();
+        const $ = cheerio.load(searchHtml, { decodeEntities: false });
+        
+        const recommendedSeries = $(".Thumb--GridItem");
+        if (!recommendedSeries.length) {
+            return parentPort.postMessage({ data: "Not Found" });
+        }
+
+        // Get first search result
+        const firstSeriesLink = $(recommendedSeries[0]).find("a").attr("href")?.replace("weciimaa.online", "mycima.tv");
+        if (!firstSeriesLink) {
+            return parentPort.postMessage({ data: "Not Found" });
+        }
+
+        // Fetch series page
+        const seriesResponse = await retryFetch(firstSeriesLink);
+        const seriesHtml = await seriesResponse.text();
+        const $series = cheerio.load(seriesHtml, { decodeEntities: false });
+        
+        // Handle different season list formats
+        let seasonsList = $series(".List--Seasons--Episodes");
+        let isSingleSeason = false;
+
+        if (!seasonsList.length) {
+            seasonsList = $series(".Seasons--Episodes");
+            isSingleSeason = true;
+        }
+
+        if (isSingleSeason) {
+            // Handle single season shows
+            const episodeLinks = seasonsList.find("a");
+            if (!episodeLinks.length || episode > episodeLinks.length) {
+                return parentPort.postMessage({ data: "Episode Not Found" });
+            }
+
+            const targetEpisodeLink = episodeLinks[episodeLinks.length - episode]?.attribs?.href?.replace("weciimaa.online", "mycima.tv");
+            if (!targetEpisodeLink) {
+                return parentPort.postMessage({ data: "Episode Not Found" });
+            }
+
+            const episodeResponse = await retryFetch(targetEpisodeLink);
+            const episodeHtml = await episodeResponse.text();
+            const $episode = cheerio.load(episodeHtml, { decodeEntities: false });
+
+            const watchLink = $episode("iframe[name='watch']").attr("data-lazy-src");
+            
+            // Extract download links
+            const download_ep_links = await extractDownloadLinks($episode, "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(2)");
+            const download_season_links = await extractDownloadLinks($episode, "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(4)");
+
+            parentPort.postMessage({
+                data: watchLink,
+                download_ep_links,
+                download_season_links: download_season_links.length ? download_season_links : "We Don't Have Download All The Season Of This TV Show Yet"
+            });
+
+        } else {
+            // Handle multi-season shows
+            const seasonsLinks = seasonsList.find("a");
+            if (season > seasonsLinks.length) {
+                return parentPort.postMessage({ data: "Season Not Found" });
+            }
+
+            const seasonLink = seasonsLinks[season - 1]?.attribs?.href?.replace("weciimaa.online", "mycima.tv");
+            if (!seasonLink) {
+                return parentPort.postMessage({ data: "Season Not Found" });
+            }
+
+            const seasonResponse = await retryFetch(seasonLink);
+            const seasonHtml = await seasonResponse.text();
+            const $season = cheerio.load(seasonHtml, { decodeEntities: false });
+
+            const episodesList = $season(".Episodes--Seasons--Episodes");
+            const episodeLinks = episodesList.find("a");
+            
+            if (episode > episodeLinks.length) {
+                return parentPort.postMessage({ data: "Episode Not Found" });
+            }
+
+            const targetEpisodeLink = episodeLinks[episodeLinks.length - episode]?.attribs?.href?.replace("weciimaa.online", "mycima.tv");
+            if (!targetEpisodeLink) {
+                return parentPort.postMessage({ data: "Episode Not Found" });
+            }
+
+            const episodeResponse = await retryFetch(targetEpisodeLink);
+            const episodeHtml = await episodeResponse.text();
+            const $episode = cheerio.load(episodeHtml, { decodeEntities: false });
+
+            const watchLink = $episode("iframe[name='watch']").attr("data-lazy-src");
+
+            // Extract download links
+            const download_ep_links = await extractDownloadLinks($episode, "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(2)");
+            const download_season_links = await extractDownloadLinks($episode, "body > root > rootinside > singlecontainer > singlecontainerright > wecima > singlesections > singlesection:nth-child(1) > div > div.Download--Wecima--Single > ul:nth-child(4)");
+
+            parentPort.postMessage({
+                data: watchLink,
+                download_ep_links,
+                download_season_links: download_season_links.length ? download_season_links : "We Don't Have Download All The Season Of This TV Show Yet"
+            });
+        }
+
+    } catch (error) {
+        parentPort.postMessage({ 
+            data: "Error", 
+            error: error.message 
+        });
+    }
+}
+
+// Cleanup function for worker
+function cleanup() {
+    process.removeAllListeners();
+    if (parentPort) {
+        parentPort.close();
+    }
+}
+
+// Handle worker termination
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+
+// Start scraping
+scrapeTVShow();
