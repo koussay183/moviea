@@ -16,6 +16,25 @@ const fs = require("fs");
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { requests } = require("./requests");
 
+// Create template HTML with placeholders replaced
+let indexHtmlTemplate = '';
+try {
+    indexHtmlTemplate = fs.readFileSync(path.join(__dirname, 'build', 'index.html'), 'utf8')
+        .replace(/__REDIRECT__/g, '')
+        .replace(/__HTML__/g, '')
+        .replace(/__POSTER__/g, '')
+        .replace(/__POSTER__2/g, '')
+        .replace(/__DESCRIPTION__/g, '')
+        .replace(/__DESCRIPTION__2/g, '')
+        .replace(/__DESCRIPTION__3/g, '')
+        .replace(/__FB_TITLE__/g, '')
+        .replace(/__FB_DESCRIPTION__/g, '');
+    console.log('Successfully loaded and prepared index.html template');
+} catch (err) {
+    console.error('Error loading index.html:', err);
+    indexHtmlTemplate = '<!DOCTYPE html><html><head><title>Error</title></head><body>Error loading application</body></html>';
+}
+
 // Middleware
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
@@ -46,8 +65,19 @@ app.use('/api/', limiter); // Apply to API routes only
 app.use('/tv/files/', limiter); // Apply to TV files routes
 app.use('/movie/files/', limiter); // Apply to movie files routes
 
-// Serve static files from the React build directory
-app.use(express.static(path.join(__dirname, 'build')));
+// Custom middleware to serve React app static files
+app.use(express.static(path.join(__dirname, 'build'), {
+    // Set proper cache headers for static files
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            // Don't cache HTML files
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
+            // Cache static assets for 1 week
+            res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+}));
 
 // Worker Pool Management
 class WorkerPool {
@@ -588,20 +618,7 @@ app.get('*', function(req, res) {
     }
     
     // For all other routes, serve a clean version of index.html for React routing
-    fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading index.html:', err);
-            return res.status(500).send('Error loading application');
-        }
-        
-        // Replace any placeholder variables that might cause redirects
-        data = data.replace('__REDIRECT__', '');
-        data = data.replace('__POSTER__', '');
-        data = data.replace('__POSTER__2', '');
-        data = data.replace('__HTML__', '');
-        
-        res.send(data);
-    });
+    res.send(indexHtmlTemplate);
 });
 
 // Error handling middleware
