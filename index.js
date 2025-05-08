@@ -557,33 +557,51 @@ app.get("/tv/ramadan/watch/:id", async (req, res) => {
 
 // Catch-all route for React app - should be last
 app.get('*', function(req, res) {
-    // Check if the path matches the TV show season pattern
-    const tvSeasonPattern = /^\/tv\/\d+\/season\/\d+\/episodes$/;
-    
-    // If it's an API route, return 404
-    if (req.path.startsWith('/api/')) {
+    // Exclude API routes and file requests from React routing
+    if (req.path.startsWith('/api/') || 
+        req.path.startsWith('/tv/files/') || 
+        req.path.startsWith('/movie/files/') ||
+        req.path.startsWith('/genres/') ||
+        req.path.startsWith('/discover/') ||
+        req.path.startsWith('/similar/') ||
+        req.path.startsWith('/person/') ||
+        req.path.startsWith('/credit/') ||
+        req.path.startsWith('/search/') ||
+        req.path.startsWith('/arabic/') ||
+        req.path.startsWith('/reels/') ||
+        req.path.startsWith('/ramadan/') ||
+        req.path.startsWith('/share/')) {
         return res.status(404).json({ error: 'Not found' });
     }
     
-    // If it matches the TV show season pattern or other React routes, serve the React app
-    if (tvSeasonPattern.test(req.path) ||
-        !req.path.startsWith('/tv/files/') && 
-        !req.path.startsWith('/movie/files/') &&
-        !req.path.startsWith('/genres/') &&
-        !req.path.startsWith('/discover/') &&
-        !req.path.startsWith('/similar/') &&
-        !req.path.startsWith('/person/') &&
-        !req.path.startsWith('/credit/') &&
-        !req.path.startsWith('/search/') &&
-        !req.path.startsWith('/arabic/') &&
-        !req.path.startsWith('/reels/') &&
-        !req.path.startsWith('/ramadan/') &&
-        !req.path.startsWith('/share/')) {
-        return res.sendFile(path.join(__dirname, 'build', 'index.html'));
+    // Check if requesting a specific static file with extension
+    const fileExtRegex = /\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/i;
+    
+    if (fileExtRegex.test(req.path)) {
+        // Try to serve the file from the build directory
+        const filePath = path.join(__dirname, 'build', req.path);
+        if (fs.existsSync(filePath)) {
+            return res.sendFile(filePath);
+        } else {
+            return res.status(404).json({ error: 'File not found' });
+        }
     }
     
-    // All other routes return 404
-    res.status(404).json({ error: 'Not found' });
+    // For all other routes, serve a clean version of index.html for React routing
+    fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading index.html:', err);
+            return res.status(500).send('Error loading application');
+        }
+        
+        // Replace any placeholder variables that might cause redirects
+        data = data.replace('__REDIRECT__', '');
+        data = data.replace('__POSTER__', '');
+        data = data.replace('__POSTER__2', '');
+        data = data.replace('__HTML__', '');
+        
+        res.send(data);
+    });
 });
 
 // Error handling middleware
