@@ -30,7 +30,10 @@ function generateVideoSitemapXML(videos) {
         xml += '  <url>\n';
         xml += `    <loc>${video.pageUrl}</loc>\n`;
         xml += '    <video:video>\n';
-        xml += `      <video:thumbnail_loc>${video.thumbnailUrl}</video:thumbnail_loc>\n`;
+        // Only include thumbnail_loc if a valid URL exists
+        if (video.thumbnailUrl && video.thumbnailUrl !== 'undefined') {
+            xml += `      <video:thumbnail_loc>${video.thumbnailUrl}</video:thumbnail_loc>\n`;
+        }
         xml += `      <video:title>${escapeXml(video.title)}</video:title>\n`;
         xml += `      <video:description>${escapeXml(video.description)}</video:description>\n`;
         
@@ -128,9 +131,8 @@ function generateSitemapIndex(sitemapFiles, baseUrl) {
 function movieToVideoEntry(movie, baseUrl) {
     // Format the duration in seconds
     const durationInSeconds = movie.runtime ? movie.runtime * 60 : undefined;
-    
-    // Format publication date (release date)
-    const publishDate = movie.release_date ? new Date(movie.release_date).toISOString() : undefined;
+      // Format publication date (release date) in YYYY-MM-DD format for Google compliance
+    const publishDate = movie.release_date ? movie.release_date.substring(0, 10) : undefined;
     
     // Prepare tags from genres
     const tags = movie.genres ? movie.genres.map(g => g.name) : [];
@@ -155,10 +157,9 @@ function movieToVideoEntry(movie, baseUrl) {
     return {
         pageUrl: `${baseUrl}/all-about/movie/${movie.id}`,
         title: movie.title || movie.original_title,
-        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.tn`,
-        thumbnailUrl: movie.backdrop_path ? 
+        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.tn`,        thumbnailUrl: movie.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : 
-            (movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : undefined),
+            (movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null),
         contentLoc: `https://vidsrc.to/embed/movie/${movie.id}`,
         playerLoc: `https://vidsrc.to/embed/movie/${movie.id}`,
         duration: durationInSeconds,
@@ -176,9 +177,8 @@ function movieToVideoEntry(movie, baseUrl) {
  * @param {string} baseUrl - Base URL for the website
  * @returns {Object} Video object for sitemap
  */
-function tvShowToVideoEntry(tvShow, baseUrl) {
-    // Format publication date (first air date)
-    const publishDate = tvShow.first_air_date ? new Date(tvShow.first_air_date).toISOString() : undefined;
+function tvShowToVideoEntry(tvShow, baseUrl) {    // Format publication date (first air date) in YYYY-MM-DD format for Google compliance
+    const publishDate = tvShow.first_air_date ? tvShow.first_air_date.substring(0, 10) : undefined;
     
     // Prepare tags from genres
     const tags = tvShow.genres ? tvShow.genres.map(g => g.name) : [];
@@ -203,10 +203,9 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
     return {
         pageUrl: `${baseUrl}/all-about/tv/${tvShow.id}`,
         title: tvShow.name || tvShow.original_name,
-        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.tn`,
-        thumbnailUrl: tvShow.backdrop_path ? 
+        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.tn`,        thumbnailUrl: tvShow.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${tvShow.backdrop_path}` : 
-            (tvShow.poster_path ? `https://image.tmdb.org/t/p/w780${tvShow.poster_path}` : undefined),
+            (tvShow.poster_path ? `https://image.tmdb.org/t/p/w780${tvShow.poster_path}` : null),
         contentLoc: `https://vidsrc.to/embed/tv/${tvShow.id}`,
         playerLoc: `https://vidsrc.to/embed/tv/${tvShow.id}`,
         // No fixed duration for TV shows
