@@ -1,38 +1,78 @@
 {
   "navigationFallback": {
-    "rewrite": "index.html",
-    "exclude": ["/static/*", "/*.{png,jpg,ico,svg,js,css,woff,woff2,ttf,eot}"]
+    "rewrite": "/index.html",
+    "exclude": [
+      "/static/*.{js,css,png,jpg,gif,svg}",
+      "/*.{ico,png,jpg,json}"
+    ]
   },
   "routes": [
     {
-      "route": "/static/*",
-      "headers": {
-        "cache-control": "must-revalidate, max-age=15770000"
-      }
+      "route": "/__REDIRECT__*",
+      "serve": "/index.html",
+      "statusCode": 200
+    },
+    {
+      "route": "/__HTML__*",
+      "serve": "/index.html",
+      "statusCode": 200
+    },
+    {
+      "route": "/__POSTER__*",
+      "serve": "/index.html",
+      "statusCode": 200
+    },
+    {
+      "route": "/__DESCRIPTION__*",
+      "serve": "/index.html",
+      "statusCode": 200
+    },
+    {
+      "route": "/__FB_*",
+      "serve": "/index.html",
+      "statusCode": 200
     },
     {
       "route": "/api/*",
-      "methods": ["GET"]
+      "allowedRoles": ["anonymous"]
     },
     {
-      "route": "/*.*",
-      "headers": {
-        "cache-control": "must-revalidate, max-age=15770000"
-      }
+      "route": "/tv/files/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/movie/files/*",
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
-      "rewrite": "index.html",
-      "headers": {
-        "cache-control": "no-cache"
-      }
-    }
-  ],
-  "platformErrorOverrides": [
-    {
-      "errorType": "NotFound",
       "serve": "/index.html",
       "statusCode": 200
     }
-  ]
+  ],
+  "mimeTypes": {
+    ".json": "application/json",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".html": "text/html",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".woff": "application/font-woff",
+    ".woff2": "font/woff2"
+  },
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/index.html",
+      "statusCode": 200
+    }
+  },
+  "globalHeaders": {
+    "content-security-policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:; frame-ancestors 'self'",
+    "cache-control": "must-revalidate, max-age=86400"
+  },
+  "platform": {
+    "apiRuntime": "node:18"
+  }
 }

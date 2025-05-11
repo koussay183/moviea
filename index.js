@@ -16,24 +16,7 @@ const fs = require("fs");
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { requests } = require("./requests");
 
-// Create template HTML with placeholders replaced
-let indexHtmlTemplate = '';
-try {
-    indexHtmlTemplate = fs.readFileSync(path.join(__dirname, 'build', 'index.html'), 'utf8')
-        .replace(/__REDIRECT__/g, '')
-        .replace(/__HTML__/g, '')
-        .replace(/__POSTER__/g, '')
-        .replace(/__POSTER__2/g, '')
-        .replace(/__DESCRIPTION__/g, '')
-        .replace(/__DESCRIPTION__2/g, '')
-        .replace(/__DESCRIPTION__3/g, '')
-        .replace(/__FB_TITLE__/g, '')
-        .replace(/__FB_DESCRIPTION__/g, '');
-    console.log('Successfully loaded and prepared index.html template');
-} catch (err) {
-    console.error('Error loading index.html:', err);
-    indexHtmlTemplate = '<!DOCTYPE html><html><head><title>Error</title></head><body>Error loading application</body></html>';
-}
+const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
 
 // Middleware
 app.use(compression());
@@ -65,7 +48,342 @@ app.use('/api/', limiter); // Apply to API routes only
 app.use('/tv/files/', limiter); // Apply to TV files routes
 app.use('/movie/files/', limiter); // Apply to movie files routes
 
-// Custom middleware to serve React app static files
+// Custom middleware to intercept movie routes with numeric IDs for SEO enhancement
+app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
+    try {
+        const movieId = req.params[0]; // Get movie ID from regex match
+        
+        // Fetch movie details similar to the logic in /movie/:id route
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos`);
+        const movieInfo = await response.json();
+        
+        if (movieInfo.success === false) {
+            // If movie not found, continue to next middleware
+            return next();
+        }
+        
+        // Read the index.html file
+        fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf-8', (err, data) => {
+            if (err) {
+                console.error('Error reading index.html:', err);
+                return next(); // Continue to next middleware if file read fails
+            }
+            
+            // SEO enhancements - prepare metadata
+            const title = `${movieInfo.title || movieInfo.original_title} | Watch on Moviea.tn`;
+            const fullTitle = `${movieInfo.title || movieInfo.original_title} - Watch Free on Moviea Now`;
+            const description = movieInfo.overview || 'Watch this movie on Moviea now';
+            const imageUrl = movieInfo.backdrop_path ? 
+                `https://image.tmdb.org/t/p/original/${movieInfo.backdrop_path}` : 
+                (movieInfo.poster_path ? `https://image.tmdb.org/t/p/original/${movieInfo.poster_path}` : '');
+                
+            // Generate release year and genre keywords for SEO
+            const releaseYear = movieInfo.release_date ? new Date(movieInfo.release_date).getFullYear() : '';
+            const genres = movieInfo.genres ? movieInfo.genres.map(g => g.name).join(', ') : '';
+            const keywords = `${movieInfo.title}, ${genres}, ${releaseYear}, watch online, free movie, moviea.tn, stream, download, full movie, high quality`;
+            
+            // Create a complete SEO-optimized HTML document
+            const seoHtml = `<!doctype html>
+<html lang="en">
+<head>
+    <base href="/"/>
+    <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
+    <meta name="google-adsense-account" content="ca-pub-9662854573261832">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="./favicon.ico"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    
+    <!-- SEO Meta Tags -->
+    <title>${fullTitle}</title>
+    <meta name="description" content="${description}"/>
+    <meta name="keywords" content="${keywords}">
+    
+    <!-- Open Graph / Facebook / Social Sharing -->
+    <meta property="og:type" content="video.movie"/>
+    <meta property="og:title" content="${title}"/>
+    <meta property="og:description" content="${description}"/>
+    <meta property="og:image" content="${imageUrl}"/>
+    <meta property="og:url" content="https://moviea.tn/all-about/movie/${movieId}"/>
+    <meta property="og:site_name" content="Moviea.tn"/>
+    
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${imageUrl}">
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Movie",
+      "name": "${movieInfo.title || movieInfo.original_title}",
+      "description": "${description}",
+      "image": "${imageUrl}",
+      ${releaseYear ? `"datePublished": "${movieInfo.release_date}",` : ''}
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "${movieInfo.vote_average || 0}",
+        "reviewCount": "${movieInfo.vote_count || 0}"
+      }
+    }
+    </script>
+    
+    <link rel="canonical" href="https://moviea.tn/all-about/movie/${movieId}"/>
+    <link rel="apple-touch-icon" href="./logo192.png"/>
+    <link rel="manifest" href="./manifest.json"/>
+    
+    <!-- Inspectlet Tracking -->
+    <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
+    
+    <script defer="defer" src="./static/js/main.3867268b.js"></script>
+    <link href="./static/css/main.291b9921.css" rel="stylesheet">
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>`;
+            
+            // Send the SEO-optimized HTML
+            res.send(seoHtml);
+        });
+    } catch (error) {
+        console.error('Error in movie route middleware:', error);
+        next(); // Continue to next middleware if there's an error
+    }
+});
+
+// Custom middleware to intercept TV show routes with numeric IDs for SEO enhancement
+app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
+    try {
+        const tvId = req.params[0]; // Get TV ID from regex match
+        
+        // Fetch TV details
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos`);
+        const tvInfo = await response.json();
+        
+        if (tvInfo.success === false) {
+            // If TV show not found, continue to next middleware
+            return next();
+        }
+        
+        // Read the index.html file
+        fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf-8', (err, data) => {
+            if (err) {
+                console.error('Error reading index.html:', err);
+                return next(); // Continue to next middleware if file read fails
+            }
+            
+            // SEO enhancements - prepare metadata
+            const title = `${tvInfo.name} | Watch on Moviea.tn`;
+            const fullTitle = `${tvInfo.name} - Watch Free on Moviea Now`;
+            const description = tvInfo.overview || 'Watch this TV show on Moviea now';
+            const imageUrl = tvInfo.backdrop_path ? 
+                `https://image.tmdb.org/t/p/original/${tvInfo.backdrop_path}` : 
+                (tvInfo.poster_path ? `https://image.tmdb.org/t/p/original/${tvInfo.poster_path}` : '');
+                
+            // Generate first air date and genre keywords for SEO
+            const firstAirYear = tvInfo.first_air_date ? new Date(tvInfo.first_air_date).getFullYear() : '';
+            const genres = tvInfo.genres ? tvInfo.genres.map(g => g.name).join(', ') : '';
+            const keywords = `${tvInfo.name}, ${genres}, ${firstAirYear}, watch online, free TV show, moviea.tn, stream, download, full episodes, series, high quality`;
+            
+            // Create a complete SEO-optimized HTML document
+            const seoHtml = `<!doctype html>
+<html lang="en">
+<head>
+    <base href="/"/>
+    <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
+    <meta name="google-adsense-account" content="ca-pub-9662854573261832">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="./favicon.ico"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    
+    <!-- SEO Meta Tags -->
+    <title>${fullTitle}</title>
+    <meta name="description" content="${description}"/>
+    <meta name="keywords" content="${keywords}">
+    
+    <!-- Open Graph / Facebook / Social Sharing -->
+    <meta property="og:type" content="video.tv_show"/>
+    <meta property="og:title" content="${title}"/>
+    <meta property="og:description" content="${description}"/>
+    <meta property="og:image" content="${imageUrl}"/>
+    <meta property="og:url" content="https://moviea.tn/all-about/tv/${tvId}"/>
+    <meta property="og:site_name" content="Moviea.tn"/>
+    
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${imageUrl}">
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TVSeries",
+      "name": "${tvInfo.name}",
+      "description": "${description}",
+      "image": "${imageUrl}",
+      ${firstAirYear ? `"datePublished": "${tvInfo.first_air_date}",` : ''}
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "${tvInfo.vote_average || 0}",
+        "reviewCount": "${tvInfo.vote_count || 0}"
+      }
+    }
+    </script>
+    
+    <link rel="canonical" href="https://moviea.tn/all-about/tv/${tvId}"/>
+    <link rel="apple-touch-icon" href="./logo192.png"/>
+    <link rel="manifest" href="./manifest.json"/>
+    
+    <!-- Inspectlet Tracking -->
+    <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
+    
+    <script defer="defer" src="./static/js/main.3867268b.js"></script>
+    <link href="./static/css/main.291b9921.css" rel="stylesheet">
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>`;
+            
+            // Send the SEO-optimized HTML
+            res.send(seoHtml);
+        });
+    } catch (error) {
+        console.error('Error in TV show route middleware:', error);
+        next(); // Continue to next middleware if there's an error
+    }
+});
+
+// Custom middleware to intercept Arabic TN TV content routes with numeric IDs for SEO enhancement
+app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
+    try {
+        const tvId = req.params[0]; // Get TV ID from regex match
+        
+        // Fetch TV details from the Arabic content API
+        const response = await fetch(
+            `https://content.shofha.com/api/mobile/contentFiles/${tvId}?subscriberId=8765592`,
+            { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj", "platform": 1 } }
+        );
+        
+        if (!response.ok) {
+            return next(); // Continue to next middleware if API call fails
+        }
+        
+        const tvInfo = await response.json();
+        
+        if (!tvInfo) {
+            // If TV content not found, continue to next middleware
+            return next();
+        }
+        
+        // Read the index.html file
+        fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf-8', (err, data) => {
+            if (err) {
+                console.error('Error reading index.html:', err);
+                return next(); // Continue to next middleware if file read fails
+            }
+            
+            // SEO enhancements - prepare metadata
+            const title = `${tvInfo.name_ar || tvInfo.name_en} | Watch on Moviea.tn`;
+            const fullTitle = `${tvInfo.name_ar || tvInfo.name_en} - Watch Free on Moviea Now`;
+            const description = tvInfo.description_ar || tvInfo.description_en || 'Watch this Arabic TV show on Moviea now';
+            const imageUrl = tvInfo.previewImageUrl || '';
+            
+            // Generate keywords for SEO
+            const year = tvInfo.publishDate ? new Date(tvInfo.publishDate).getFullYear() : '';
+            const categories = tvInfo.categoryDTOs ? tvInfo.categoryDTOs.map(c => c.name_ar || c.name_en).join(', ') : '';
+            const keywords = `${tvInfo.name_ar || tvInfo.name_en}, ${categories}, ${year}, مسلسلات عربية, عربي, مشاهدة مجانية, أفلام عربية, مسلسلات, دراما عربية, moviea.tn, stream, download, full episodes, arabic series, high quality`;
+            
+            // Create a complete SEO-optimized HTML document
+            const seoHtml = `<!doctype html>
+<html lang="ar">
+<head>
+    <base href="/"/>
+    <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
+    <meta name="google-adsense-account" content="ca-pub-9662854573261832">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="./favicon.ico"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    
+    <!-- SEO Meta Tags -->
+    <title>${fullTitle}</title>
+    <meta name="description" content="${description}"/>
+    <meta name="keywords" content="${keywords}">
+    
+    <!-- Open Graph / Facebook / Social Sharing -->
+    <meta property="og:type" content="video.tv_show"/>
+    <meta property="og:title" content="${title}"/>
+    <meta property="og:description" content="${description}"/>
+    <meta property="og:image" content="${imageUrl}"/>
+    <meta property="og:url" content="https://moviea.tn/tn/tv/${tvId}"/>
+    <meta property="og:site_name" content="Moviea.tn"/>
+    
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${imageUrl}">
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TVSeries",
+      "name": "${tvInfo.name_ar || tvInfo.name_en}",
+      "description": "${description}",
+      "image": "${imageUrl}",
+      ${year ? `"datePublished": "${tvInfo.publishDate}",` : ''}
+      "inLanguage": "ar"
+    }
+    </script>
+    
+    <link rel="canonical" href="https://moviea.tn/tn/tv/${tvId}"/>
+    <link rel="apple-touch-icon" href="./logo192.png"/>
+    <link rel="manifest" href="./manifest.json"/>
+    
+    <!-- Inspectlet Tracking -->
+    <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
+    
+    <script defer="defer" src="./static/js/main.3867268b.js"></script>
+    <link href="./static/css/main.291b9921.css" rel="stylesheet">
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>`;
+            
+            // Send the SEO-optimized HTML
+            res.send(seoHtml);
+        });
+    } catch (error) {
+        console.error('Error in Arabic TV route middleware:', error);
+        next(); // Continue to next middleware if there's an error
+    }
+});
+
+// Custom middleware to serve React app static files (comes after special routes)
 app.use(express.static(path.join(__dirname, 'build'), {
     // Set proper cache headers for static files
     setHeaders: (res, filePath) => {
@@ -287,84 +605,95 @@ const fetchAndReturn = async (url) => {
 };
 
 app.get('/share/movie/:id', async (req, res) => {
-    fs.readFile(path.resolve("./index.html"), 'utf-8', async (err, data) => {
+    fs.readFile(path.resolve("./build/index.html"), 'utf-8', async (err, data) => {
         if (err) {
             console.log(err);
             return res.status(500).send("Some Error Happend");
         }
         const movieId = req.params.id;
-        const result = await fetch("https://api.themoviedb.org/3/movie/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
-        const info = await result.json();
+        try {
+            const result = await fetch("https://api.themoviedb.org/3/movie/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
+            const info = await result.json();
 
-        data = data.replace('Page Title', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
-        data = data.replace('Page Title2', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
-        data = data.replace('__DESCRIPTION__', info?.overview);
-        data = data.replace('__DESCRIPTION__2', info?.overview);
-        data = data.replace('__DESCRIPTION__3', info?.overview);
-        data = data.replace('__FB_TITLE__', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
-        data = data.replace('__FB_DESCRIPTION__', info?.overview);
-        data = data.replace('__POSTER__', "https://image.tmdb.org/t/p/original/" + info?.backdrop_path);
-        data = data.replace('__POSTER__2', "https://image.tmdb.org/t/p/original/" + info?.poster_path);
-        data = data.replace('__REDIRECT__', "https://moviea.tn/all-about/movie/" + movieId);
-        return res.send(data);
+            data = data.replace('Page Title', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
+            data = data.replace('Page Title2', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
+            data = data.replace('__DESCRIPTION__', info?.overview || '');
+            data = data.replace('__DESCRIPTION__2', info?.overview || '');
+            data = data.replace('__DESCRIPTION__3', info?.overview || '');
+            data = data.replace('__FB_TITLE__', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
+            data = data.replace('__FB_DESCRIPTION__', info?.overview || '');
+            data = data.replace('__POSTER__', "https://image.tmdb.org/t/p/original/" + info?.backdrop_path || '');
+            data = data.replace('__POSTER__2', "https://image.tmdb.org/t/p/original/" + info?.poster_path || '');
+            data = data.replace('__REDIRECT__', "https://moviea.tn/all-about/movie/" + movieId);
+            return res.send(data);
+        } catch (error) {
+            console.error('Error fetching movie info:', error);
+            res.status(500).send("Error fetching movie information");
+        }
     });
 });
 
 app.get('/share/tn/:tvId', async (req, res) => {
-    fs.readFile(path.resolve("./index.html"), 'utf-8', async (err, data) => {
+    fs.readFile(path.resolve("./build/index.html"), 'utf-8', async (err, data) => {
         if (err) {
             console.log(err);
             return res.status(500).send("Some Error Happend");
         }
         const tvId = req.params.tvId;
+        try {
+            const result = await fetch(
+                `https://content.shofha.com/api/mobile/contentFiles/${tvId}?subscriberId=8765592`,
+                { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj", "platform": 1 } }
+            );
 
-        const result = await fetch(
-            `https://content.shofha.com/api/mobile/contentFiles/${tvId}?subscriberId=8765592`,
-            { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj", "platform": 1 } }
-        );
+            const info = await result.json();
 
-        const info = await result.json();
-
-        data = data.replace('Page Title', info?.name_ar + " | On Moviea Now");
-        data = data.replace('Page Title2', info?.name_ar + " | On Moviea Now");
-        data = data.replace('__DESCRIPTION__', info?.description_ar);
-        data = data.replace('__DESCRIPTION__2', info?.description_ar);
-        data = data.replace('__DESCRIPTION__3', info?.description_ar);
-        data = data.replace('__FB_TITLE__', info?.name_ar + " | On Moviea Now");
-        data = data.replace('__FB_DESCRIPTION__', info?.description_ar);
-        data = data.replace('__POSTER__', info?.previewImageUrl);
-        data = data.replace('__POSTER__2', info?.previewImageUrl);
-        data = data.replace('__REDIRECT__', "https://moviea.tn/tn/tv/" + tvId);
-        return res.send(data);
+            data = data.replace('Page Title', info?.name_ar + " | On Moviea Now");
+            data = data.replace('Page Title2', info?.name_ar + " | On Moviea Now");
+            data = data.replace('__DESCRIPTION__', info?.description_ar || '');
+            data = data.replace('__DESCRIPTION__2', info?.description_ar || '');
+            data = data.replace('__DESCRIPTION__3', info?.description_ar || '');
+            data = data.replace('__FB_TITLE__', info?.name_ar + " | On Moviea Now");
+            data = data.replace('__FB_DESCRIPTION__', info?.description_ar || '');
+            data = data.replace('__POSTER__', info?.previewImageUrl || '');
+            data = data.replace('__POSTER__2', info?.previewImageUrl || '');
+            data = data.replace('__REDIRECT__', "https://moviea.tn/tn/tv/" + tvId);
+            return res.send(data);
+        } catch (error) {
+            console.error('Error fetching TV show info:', error);
+            res.status(500).send("Error fetching TV show information");
+        }
     });
 });
 
 app.get('/share/tv/:id', async (req, res) => {
-    fs.readFile(path.resolve("./index.html"), 'utf-8', async (err, data) => {
+    fs.readFile(path.resolve("./build/index.html"), 'utf-8', async (err, data) => {
         if (err) {
             console.log(err);
             return res.status(500).send("Some Error Happend");
         }
         const movieId = req.params.id;
-        const result = await fetch("https://api.themoviedb.org/3/tv/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
-        const info = await result.json();
+        try {
+            const result = await fetch("https://api.themoviedb.org/3/tv/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
+            const info = await result.json();
 
-        data = data.replace('Page Title', info?.name + " | On Moviea Now");
-        data = data.replace('Page Title2', info?.name + " | On Moviea Now");
-        data = data.replace('__DESCRIPTION__', info?.overview);
-        data = data.replace('__DESCRIPTION__2', info?.overview);
-        data = data.replace('__DESCRIPTION__3', info?.overview);
-        data = data.replace('__FB_TITLE__', info?.name + " | On Moviea Now");
-        data = data.replace('__FB_DESCRIPTION__', info?.overview);
-        data = data.replace('__POSTER__', "https://image.tmdb.org/t/p/original/" + info?.backdrop_path);
-        data = data.replace('__POSTER__2', "https://image.tmdb.org/t/p/original/" + info?.poster_path);
-        data = data.replace('__REDIRECT__', "https://moviea.tn/all-about/tv/" + movieId);
-        return res.send(data);
+            data = data.replace('Page Title', info?.name + " | On Moviea Now");
+            data = data.replace('Page Title2', info?.name + " | On Moviea Now");
+            data = data.replace('__DESCRIPTION__', info?.overview || '');
+            data = data.replace('__DESCRIPTION__2', info?.overview || '');
+            data = data.replace('__DESCRIPTION__3', info?.overview || '');
+            data = data.replace('__FB_TITLE__', info?.name + " | On Moviea Now");
+            data = data.replace('__FB_DESCRIPTION__', info?.overview || '');
+            data = data.replace('__POSTER__', "https://image.tmdb.org/t/p/original/" + info?.backdrop_path || '');
+            data = data.replace('__POSTER__2', "https://image.tmdb.org/t/p/original/" + info?.poster_path || '');
+            data = data.replace('__REDIRECT__', "https://moviea.tn/all-about/tv/" + movieId);
+            return res.send(data);
+        } catch (error) {
+            console.error('Error fetching TV info:', error);
+            res.status(500).send("Error fetching TV information");
+        }
     });
 });
-
-// TMDB ROUTES -------------------------------------------------------------------------------------
-var API_KEY = "20108f1c4ed38f7457c479849a9999cc";
 
 app.get('/genres/movie', async (req, res) => {
     res.send(await fetchAndReturn(requests.fetchGenreMovie));
@@ -599,16 +928,20 @@ app.get('*', function(req, res) {
         req.path.startsWith('/search/') ||
         req.path.startsWith('/arabic/') ||
         req.path.startsWith('/reels/') ||
-        req.path.startsWith('/ramadan/') ||
-        req.path.startsWith('/share/')) {
+        req.path.startsWith('/ramadan/')) {
         return res.status(404).json({ error: 'Not found' });
+    }
+    
+    // Special handling for placeholder URLs - redirect to home instead of 404
+    if (req.path === '/__REDIRECT__' || 
+        req.path === '/__HTML__' || 
+        req.path === '/__POSTER__') {
+        return res.redirect('/');
     }
     
     // Check if requesting a specific static file with extension
     const fileExtRegex = /\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/i;
-    
     if (fileExtRegex.test(req.path)) {
-        // Try to serve the file from the build directory
         const filePath = path.join(__dirname, 'build', req.path);
         if (fs.existsSync(filePath)) {
             return res.sendFile(filePath);
@@ -617,8 +950,8 @@ app.get('*', function(req, res) {
         }
     }
     
-    // For all other routes, serve a clean version of index.html for React routing
-    res.send(indexHtmlTemplate);
+    // For all other routes, serve the index.html for client-side routing
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
 // Error handling middleware

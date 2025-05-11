@@ -1,4 +1,0 @@
-{
-    "appService.defaultWebAppToDeploy": "/subscriptions/2c5403b6-6c9b-4602-b0d4-1f63fc247809/resourceGroups/moviea_group/providers/Microsoft.Web/sites/moviea",
-    "appService.deploySubpath": "."
-}
