@@ -15,6 +15,15 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 const fs = require("fs");
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { requests } = require("./requests");
+const {
+    detectLanguage,
+    getTranslation,
+    generateKeywords,
+    generateTitle,
+    generateStructuredData,
+    detectCountryFromRequest
+} = require('./seoHelpers');
+const { initSitemapSystem } = require('./sitemapController');
 
 const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
 
@@ -50,12 +59,30 @@ app.use('/movie/files/', limiter); // Apply to movie files routes
 
 // Custom middleware to intercept movie routes with numeric IDs for SEO enhancement
 app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
-    try {
-        const movieId = req.params[0]; // Get movie ID from regex match
+    try {        const movieId = req.params[0]; // Get movie ID from regex match
+          // Detect user's country & language from request
+        const userCountry = await detectCountryFromRequest(req);
+        const userLanguage = detectLanguage(userCountry);
         
-        // Fetch movie details similar to the logic in /movie/:id route
-        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos`);
-        const movieInfo = await response.json();
+        
+        // Attempt to fetch additional movie details like credits for enhanced SEO
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${userLanguage}`);
+        let movieInfo = await response.json();
+        
+        // If we have the movie info and its original language, we can fetch it again with that language
+        if (movieInfo && movieInfo.original_language && movieInfo.original_language !== userLanguage) {
+            try {
+                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${movieInfo.original_language}`);
+                const originalLangData = await detailsInOriginalLang.json();
+                
+                // Merge the data, prioritizing the user language data
+                Object.assign(originalLangData, movieInfo);
+                movieInfo = originalLangData;
+            } catch (error) {
+                console.error('Error fetching movie in original language:', error);
+                // Continue with what we have
+            }
+        }
         
         if (movieInfo.success === false) {
             // If movie not found, continue to next middleware
@@ -69,22 +96,36 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
                 return next(); // Continue to next middleware if file read fails
             }
             
-            // SEO enhancements - prepare metadata
-            const title = `${movieInfo.title || movieInfo.original_title} | Watch on Moviea.tn`;
-            const fullTitle = `${movieInfo.title || movieInfo.original_title} - Watch Free on Moviea Now`;
-            const description = movieInfo.overview || 'Watch this movie on Moviea now';
-            const imageUrl = movieInfo.backdrop_path ? 
+            // Get img URL for various image sizes for optimization
+            const imageUrlOriginal = movieInfo.backdrop_path ? 
                 `https://image.tmdb.org/t/p/original/${movieInfo.backdrop_path}` : 
                 (movieInfo.poster_path ? `https://image.tmdb.org/t/p/original/${movieInfo.poster_path}` : '');
                 
-            // Generate release year and genre keywords for SEO
-            const releaseYear = movieInfo.release_date ? new Date(movieInfo.release_date).getFullYear() : '';
-            const genres = movieInfo.genres ? movieInfo.genres.map(g => g.name).join(', ') : '';
-            const keywords = `${movieInfo.title}, ${genres}, ${releaseYear}, watch online, free movie, moviea.tn, stream, download, full movie, high quality`;
+            const imageUrlLarge = movieInfo.backdrop_path ? 
+                `https://image.tmdb.org/t/p/w1280/${movieInfo.backdrop_path}` : 
+                (movieInfo.poster_path ? `https://image.tmdb.org/t/p/w780/${movieInfo.poster_path}` : '');
+                  // Use our SEO helper functions for optimized content
+            const contentUrl = `https://moviea.tn/all-about/movie/${movieId}`;
+            const optimizedTitle = generateTitle(movieInfo, 'movie', userLanguage);
+            const optimizedDescription = movieInfo.overview || `${getTranslation('watch_now', userLanguage)} ${movieInfo.title || movieInfo.original_title} ${getTranslation('online', userLanguage)}`;
+            const optimizedKeywords = generateKeywords(movieInfo, 'movie', userLanguage);
             
+            // Generate rich structured data with VideoObject + Chapter schema
+            // This creates a JSON-LD representation with dynamic chapters based on runtime
+            // which helps Google understand the content structure and may enable chapter features in search
+            const structuredData = generateStructuredData(movieInfo, 'movie', imageUrlOriginal, contentUrl, userLanguage);
+            
+            // Extract cast for rich structured data
+            const movieCast = movieInfo.credits && movieInfo.credits.cast ? 
+                movieInfo.credits.cast.slice(0, 5).map(actor => actor.name).join(', ') : '';
+                
+            // Extract director for rich structured data
+            const movieDirector = movieInfo.credits && movieInfo.credits.crew ? 
+                movieInfo.credits.crew.find(person => person.job === 'Director')?.name : '';
+                
             // Create a complete SEO-optimized HTML document
             const seoHtml = `<!doctype html>
-<html lang="en">
+<html lang="${userLanguage}">
 <head>
     <base href="/"/>
     <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
@@ -98,49 +139,51 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="theme-color" content="#000000"/>
     
-    <!-- SEO Meta Tags -->
-    <title>${fullTitle}</title>
-    <meta name="description" content="${description}"/>
-    <meta name="keywords" content="${keywords}">
+    <!-- Enhanced SEO Meta Tags -->
+    <title>${optimizedTitle}</title>
+    <meta name="description" content="${optimizedDescription}"/>
+    <meta name="keywords" content="${optimizedKeywords}">
+    ${movieCast ? `<meta name="actors" content="${movieCast}">` : ''}
+    ${movieDirector ? `<meta name="director" content="${movieDirector}">` : ''}
+    <meta name="robots" content="index, follow">
     
     <!-- Open Graph / Facebook / Social Sharing -->
     <meta property="og:type" content="video.movie"/>
-    <meta property="og:title" content="${title}"/>
-    <meta property="og:description" content="${description}"/>
-    <meta property="og:image" content="${imageUrl}"/>
-    <meta property="og:url" content="https://moviea.tn/all-about/movie/${movieId}"/>
+    <meta property="og:title" content="${optimizedTitle}"/>
+    <meta property="og:description" content="${optimizedDescription}"/>
+    <meta property="og:image" content="${imageUrlLarge}"/>
+    <meta property="og:image:width" content="1280"/>
+    <meta property="og:image:height" content="720"/>
+    <meta property="og:url" content="${contentUrl}"/>
     <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
     
     <!-- Twitter Card data -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">
-    <meta name="twitter:image" content="${imageUrl}">
+    <meta name="twitter:title" content="${optimizedTitle}">
+    <meta name="twitter:description" content="${optimizedDescription}">
+    <meta name="twitter:image" content="${imageUrlLarge}">
     
-    <!-- Structured Data for SEO -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Movie",
-      "name": "${movieInfo.title || movieInfo.original_title}",
-      "description": "${description}",
-      "image": "${imageUrl}",
-      ${releaseYear ? `"datePublished": "${movieInfo.release_date}",` : ''}
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "${movieInfo.vote_average || 0}",
-        "reviewCount": "${movieInfo.vote_count || 0}"
-      }
-    }
-    </script>
+    <!-- Structured Data for SEO - Enhanced with additional details -->
+    <script type="application/ld+json">${structuredData}</script>
     
-    <link rel="canonical" href="https://moviea.tn/all-about/movie/${movieId}"/>
+    <!-- Enhanced Link Tags -->
+    <link rel="canonical" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="x-default" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="en" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="ar" href="${contentUrl}"/>
     <link rel="apple-touch-icon" href="./logo192.png"/>
     <link rel="manifest" href="./manifest.json"/>
     
     <!-- Inspectlet Tracking -->
     <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
     
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="./static/js/main.3867268b.js" as="script">
+    <link rel="preload" href="./static/css/main.291b9921.css" as="style">
+    ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
+    
+    <!-- CSS and JS -->
     <script defer="defer" src="./static/js/main.3867268b.js"></script>
     <link href="./static/css/main.291b9921.css" rel="stylesheet">
 </head>
@@ -150,7 +193,9 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
 </body>
 </html>`;
             
-            // Send the SEO-optimized HTML
+            // Send the enhanced SEO-optimized HTML with proper cache headers
+            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
             res.send(seoHtml);
         });
     } catch (error) {
@@ -163,10 +208,27 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
 app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     try {
         const tvId = req.params[0]; // Get TV ID from regex match
+          // Detect user's country & language from request
+        const userCountry = await detectCountryFromRequest(req);
+        const userLanguage = detectLanguage(userCountry);
+          // Fetch TV show details with additional data for enhanced SEO
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${userLanguage}`);
+        let tvInfo = await response.json();
         
-        // Fetch TV details
-        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos`);
-        const tvInfo = await response.json();
+        // If we have the TV info and its original language, we can fetch it again with that language
+        if (tvInfo && tvInfo.original_language && tvInfo.original_language !== userLanguage) {
+            try {
+                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${tvInfo.original_language}`);
+                const originalLangData = await detailsInOriginalLang.json();
+                
+                // Merge the data, prioritizing the user language data
+                Object.assign(originalLangData, tvInfo);
+                tvInfo = originalLangData;
+            } catch (error) {
+                console.error('Error fetching TV show in original language:', error);
+                // Continue with what we have
+            }
+        }
         
         if (tvInfo.success === false) {
             // If TV show not found, continue to next middleware
@@ -180,22 +242,37 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
                 return next(); // Continue to next middleware if file read fails
             }
             
-            // SEO enhancements - prepare metadata
-            const title = `${tvInfo.name} | Watch on Moviea.tn`;
-            const fullTitle = `${tvInfo.name} - Watch Free on Moviea Now`;
-            const description = tvInfo.overview || 'Watch this TV show on Moviea now';
-            const imageUrl = tvInfo.backdrop_path ? 
+            // Get img URL for various image sizes for optimization
+            const imageUrlOriginal = tvInfo.backdrop_path ? 
                 `https://image.tmdb.org/t/p/original/${tvInfo.backdrop_path}` : 
                 (tvInfo.poster_path ? `https://image.tmdb.org/t/p/original/${tvInfo.poster_path}` : '');
                 
-            // Generate first air date and genre keywords for SEO
-            const firstAirYear = tvInfo.first_air_date ? new Date(tvInfo.first_air_date).getFullYear() : '';
-            const genres = tvInfo.genres ? tvInfo.genres.map(g => g.name).join(', ') : '';
-            const keywords = `${tvInfo.name}, ${genres}, ${firstAirYear}, watch online, free TV show, moviea.tn, stream, download, full episodes, series, high quality`;
+            const imageUrlLarge = tvInfo.backdrop_path ? 
+                `https://image.tmdb.org/t/p/w1280/${tvInfo.backdrop_path}` : 
+                (tvInfo.poster_path ? `https://image.tmdb.org/t/p/w780/${tvInfo.poster_path}` : '');
+                
+            // Use our SEO helper functions for optimized content
+            const contentUrl = `https://moviea.tn/all-about/tv/${tvId}`;
+            const optimizedTitle = generateTitle(tvInfo, 'tv', userLanguage);
+            const optimizedDescription = tvInfo.overview || `${getTranslation('watch_now', userLanguage)} ${tvInfo.name || tvInfo.original_name} ${getTranslation('online', userLanguage)}`;
+            const optimizedKeywords = generateKeywords(tvInfo, 'tv', userLanguage);
+            const structuredData = generateStructuredData(tvInfo, 'tv', imageUrlOriginal, contentUrl, userLanguage);
             
-            // Create a complete SEO-optimized HTML document
+            // Extract cast for rich structured data
+            const tvCast = tvInfo.credits && tvInfo.credits.cast ? 
+                tvInfo.credits.cast.slice(0, 5).map(actor => actor.name).join(', ') : '';
+                
+            // Extract creators for rich structured data
+            const tvCreators = tvInfo.created_by && tvInfo.created_by.length > 0 ? 
+                tvInfo.created_by.map(creator => creator.name).join(', ') : '';
+                
+            // Get content rating information if available
+            const contentRating = tvInfo.content_ratings && tvInfo.content_ratings.results ? 
+                tvInfo.content_ratings.results.find(rating => rating.iso_3166_1 === userCountry)?.rating || 
+                tvInfo.content_ratings.results.find(rating => rating.iso_3166_1 === 'US')?.rating : '';
+              // Create a complete SEO-optimized HTML document
             const seoHtml = `<!doctype html>
-<html lang="en">
+<html lang="${userLanguage}">
 <head>
     <base href="/"/>
     <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
@@ -209,49 +286,53 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="theme-color" content="#000000"/>
     
-    <!-- SEO Meta Tags -->
-    <title>${fullTitle}</title>
-    <meta name="description" content="${description}"/>
-    <meta name="keywords" content="${keywords}">
+    <!-- Enhanced SEO Meta Tags -->
+    <title>${optimizedTitle}</title>
+    <meta name="description" content="${optimizedDescription}"/>
+    <meta name="keywords" content="${optimizedKeywords}">
+    ${tvCast ? `<meta name="actors" content="${tvCast}">` : ''}
+    ${tvCreators ? `<meta name="creator" content="${tvCreators}">` : ''}
+    ${contentRating ? `<meta name="rating" content="${contentRating}">` : ''}
+    <meta name="robots" content="index, follow">
     
     <!-- Open Graph / Facebook / Social Sharing -->
     <meta property="og:type" content="video.tv_show"/>
-    <meta property="og:title" content="${title}"/>
-    <meta property="og:description" content="${description}"/>
-    <meta property="og:image" content="${imageUrl}"/>
-    <meta property="og:url" content="https://moviea.tn/all-about/tv/${tvId}"/>
+    <meta property="og:title" content="${optimizedTitle}"/>
+    <meta property="og:description" content="${optimizedDescription}"/>
+    <meta property="og:image" content="${imageUrlLarge}"/>
+    <meta property="og:image:width" content="1280"/>
+    <meta property="og:image:height" content="720"/>
+    <meta property="og:url" content="${contentUrl}"/>
     <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
+    ${tvInfo.number_of_seasons ? `<meta property="video:series" content="true"/>` : ''}
+    ${tvInfo.number_of_seasons ? `<meta property="video:release_date" content="${tvInfo.first_air_date}"/>` : ''}
     
     <!-- Twitter Card data -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">
-    <meta name="twitter:image" content="${imageUrl}">
+    <meta name="twitter:title" content="${optimizedTitle}">
+    <meta name="twitter:description" content="${optimizedDescription}">
+    <meta name="twitter:image" content="${imageUrlLarge}">
+      <!-- Structured Data for SEO - Enhanced with additional details -->
+    <script type="application/ld+json">${structuredData}</script>
     
-    <!-- Structured Data for SEO -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "TVSeries",
-      "name": "${tvInfo.name}",
-      "description": "${description}",
-      "image": "${imageUrl}",
-      ${firstAirYear ? `"datePublished": "${tvInfo.first_air_date}",` : ''}
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "${tvInfo.vote_average || 0}",
-        "reviewCount": "${tvInfo.vote_count || 0}"
-      }
-    }
-    </script>
-    
-    <link rel="canonical" href="https://moviea.tn/all-about/tv/${tvId}"/>
+    <!-- Enhanced Link Tags -->
+    <link rel="canonical" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="x-default" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="en" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="ar" href="${contentUrl}"/>
     <link rel="apple-touch-icon" href="./logo192.png"/>
     <link rel="manifest" href="./manifest.json"/>
     
     <!-- Inspectlet Tracking -->
     <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
     
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="./static/js/main.3867268b.js" as="script">
+    <link rel="preload" href="./static/css/main.291b9921.css" as="style">
+    ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
+    
+    <!-- CSS and JS -->
     <script defer="defer" src="./static/js/main.3867268b.js"></script>
     <link href="./static/css/main.291b9921.css" rel="stylesheet">
 </head>
@@ -261,7 +342,9 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
 </body>
 </html>`;
             
-            // Send the SEO-optimized HTML
+            // Send the enhanced SEO-optimized HTML with proper cache headers
+            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
             res.send(seoHtml);
         });
     } catch (error) {
@@ -274,6 +357,10 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
 app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
     try {
         const tvId = req.params[0]; // Get TV ID from regex match
+          // Detect user's country & language - but default to Arabic for Arabic content
+        const userCountry = await detectCountryFromRequest(req) || 'tn';
+        // Force Arabic language for Arabic TV content
+        const userLanguage = 'ar';
         
         // Fetch TV details from the Arabic content API
         const response = await fetch(
@@ -299,20 +386,32 @@ app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
                 return next(); // Continue to next middleware if file read fails
             }
             
-            // SEO enhancements - prepare metadata
-            const title = `${tvInfo.name_ar || tvInfo.name_en} | Watch on Moviea.tn`;
-            const fullTitle = `${tvInfo.name_ar || tvInfo.name_en} - Watch Free on Moviea Now`;
-            const description = tvInfo.description_ar || tvInfo.description_en || 'Watch this Arabic TV show on Moviea now';
+            // Use the SEO helpers to generate optimized content
+            const contentName = tvInfo.name_ar || tvInfo.name_en;
+            const contentUrl = `https://moviea.tn/tn/tv/${tvId}`;
             const imageUrl = tvInfo.previewImageUrl || '';
             
-            // Generate keywords for SEO
+            // Create Arabic content object in the format our helper functions expect
+            const arabicContent = {
+                ...tvInfo,
+                name: contentName,
+                original_language: 'ar',
+                type: tvInfo.type || 'tv',
+            };
+            
+            // Generate optimized SEO content
+            const optimizedTitle = generateTitle(arabicContent, 'arabic', userLanguage);
+            const optimizedDescription = tvInfo.description_ar || tvInfo.description_en || 
+                `${getTranslation('watch_now', userLanguage)} ${contentName} ${getTranslation('online', userLanguage)}`;
+            const optimizedKeywords = generateKeywords(arabicContent, 'arabic', userLanguage);
+            const structuredData = generateStructuredData(arabicContent, 'arabic', imageUrl, contentUrl, userLanguage);
+            
+            // Generate year and categories for additional metadata
             const year = tvInfo.publishDate ? new Date(tvInfo.publishDate).getFullYear() : '';
             const categories = tvInfo.categoryDTOs ? tvInfo.categoryDTOs.map(c => c.name_ar || c.name_en).join(', ') : '';
-            const keywords = `${tvInfo.name_ar || tvInfo.name_en}, ${categories}, ${year}, مسلسلات عربية, عربي, مشاهدة مجانية, أفلام عربية, مسلسلات, دراما عربية, moviea.tn, stream, download, full episodes, arabic series, high quality`;
-            
-            // Create a complete SEO-optimized HTML document
+              // Create a complete SEO-optimized HTML document
             const seoHtml = `<!doctype html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <base href="/"/>
     <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
@@ -326,45 +425,49 @@ app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="theme-color" content="#000000"/>
     
-    <!-- SEO Meta Tags -->
-    <title>${fullTitle}</title>
-    <meta name="description" content="${description}"/>
-    <meta name="keywords" content="${keywords}">
+    <!-- Enhanced SEO Meta Tags -->
+    <title>${optimizedTitle}</title>
+    <meta name="description" content="${optimizedDescription}"/>
+    <meta name="keywords" content="${optimizedKeywords}">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="Arabic">
+    <meta name="geo.region" content="TN">
+    ${categories ? `<meta name="category" content="${categories}">` : ''}
+    ${year ? `<meta name="year" content="${year}">` : ''}
     
     <!-- Open Graph / Facebook / Social Sharing -->
     <meta property="og:type" content="video.tv_show"/>
-    <meta property="og:title" content="${title}"/>
-    <meta property="og:description" content="${description}"/>
+    <meta property="og:title" content="${optimizedTitle}"/>
+    <meta property="og:description" content="${optimizedDescription}"/>
     <meta property="og:image" content="${imageUrl}"/>
-    <meta property="og:url" content="https://moviea.tn/tn/tv/${tvId}"/>
+    <meta property="og:url" content="${contentUrl}"/>
     <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:locale" content="ar_TN"/>
     
     <!-- Twitter Card data -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:title" content="${optimizedTitle}">
+    <meta name="twitter:description" content="${optimizedDescription}">
     <meta name="twitter:image" content="${imageUrl}">
     
-    <!-- Structured Data for SEO -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "TVSeries",
-      "name": "${tvInfo.name_ar || tvInfo.name_en}",
-      "description": "${description}",
-      "image": "${imageUrl}",
-      ${year ? `"datePublished": "${tvInfo.publishDate}",` : ''}
-      "inLanguage": "ar"
-    }
-    </script>
-    
-    <link rel="canonical" href="https://moviea.tn/tn/tv/${tvId}"/>
+    <!-- Enhanced Structured Data for SEO -->
+    <script type="application/ld+json">${structuredData}</script>
+      <!-- Enhanced Link Tags -->
+    <link rel="canonical" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="x-default" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="ar" href="${contentUrl}"/>
     <link rel="apple-touch-icon" href="./logo192.png"/>
     <link rel="manifest" href="./manifest.json"/>
     
     <!-- Inspectlet Tracking -->
     <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
     
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="./static/js/main.3867268b.js" as="script">
+    <link rel="preload" href="./static/css/main.291b9921.css" as="style">
+    ${imageUrl ? `<link rel="preload" href="${imageUrl}" as="image">` : ''}
+    
+    <!-- CSS and JS -->
     <script defer="defer" src="./static/js/main.3867268b.js"></script>
     <link href="./static/css/main.291b9921.css" rel="stylesheet">
 </head>
@@ -374,7 +477,9 @@ app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
 </body>
 </html>`;
             
-            // Send the SEO-optimized HTML
+            // Send the enhanced SEO-optimized HTML with proper cache headers
+            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
             res.send(seoHtml);
         });
     } catch (error) {
@@ -393,6 +498,18 @@ app.use(express.static(path.join(__dirname, 'build'), {
         } else if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
             // Cache static assets for 1 week
             res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+}));
+
+// Serve files from the public directory
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.xml')) {
+            // Set proper XML content type for sitemap files
+            res.setHeader('Content-Type', 'application/xml');
+            // Cache for 1 day
+            res.setHeader('Cache-Control', 'public, max-age=86400');
         }
     }
 }));
@@ -965,6 +1082,35 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'healthy' });
 });
 
+// Test endpoint for IP-based location detection
+app.get('/api/detect-country', async (req, res) => {
+    try {
+        // Get the country code using our enhanced function
+        const countryCode = await detectCountryFromRequest(req);
+        
+        // Get IP information for debugging
+        const ipInfo = {
+            'cf-ipcountry': req.headers['cf-ipcountry'],
+            'x-forwarded-for': req.headers['x-forwarded-for'],
+            'x-real-ip': req.headers['x-real-ip'],
+            'remoteAddress': req.connection?.remoteAddress
+        };
+        
+        // Return both the detected country and the IP information
+        res.status(200).json({
+            detectedCountry: countryCode,
+            ipInfo: ipInfo,
+            language: detectLanguage(countryCode)
+        });
+    } catch (error) {
+        console.error('Error in country detection test endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to detect country', 
+            message: error.message 
+        });
+    }
+});
+
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
@@ -972,6 +1118,13 @@ process.on('SIGTERM', () => {
         console.log('HTTP server closed');
         process.exit(0);
     });
+});
+
+// Initialize the video sitemap system
+console.log('Initializing video sitemap system...');
+initSitemapSystem(app, API_KEY, {
+    generateOnStartup: true,
+    cronSchedule: '0 4 * * *' // Every day at 4 AM
 });
 
 const server = app.listen(port, () => console.log(`Server running on port ${port}`));

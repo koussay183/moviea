@@ -5,8 +5,19 @@
       "/static/*.{js,css,png,jpg,gif,svg}",
       "/*.{ico,png,jpg,json}"
     ]
-  },
-  "routes": [
+  },  "routes": [
+    {
+      "route": "/video-sitemap.xml",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/video-sitemap-*.xml",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/video-sitemap-index.xml",
+      "allowedRoles": ["anonymous"]
+    },
     {
       "route": "/__REDIRECT__*",
       "serve": "/index.html",
