@@ -71,59 +71,48 @@ function generateVideoSitemapXML(videos) {
         // Add publication date only if it's valid
         if (video.publishDate) {
             try {
-                let validDate = null;
+                // Check if publishDate is already in the simple YYYY-MM-DD format
+                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
                 
-                // Handle different date formats
-                if (typeof video.publishDate === 'string') {
-                    if (video.publishDate.includes('T')) {
-                        // Handle ISO 8601 format (with time components)
-                        const parsedDate = new Date(video.publishDate);
-                        if (!isNaN(parsedDate.getTime())) {
-                            validDate = parsedDate;
-                        }
-                    } else {
-                        // Handle basic YYYY-MM-DD format
-                        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-                        if (dateRegex.test(video.publishDate)) {
-                            const parts = video.publishDate.split('-');
-                            const year = parseInt(parts[0]);
-                            const month = parseInt(parts[1]); // Keep 1-indexed for validation
-                            const day = parseInt(parts[2]);
-                            
-                            // Strict date validation using helper function
-                            if (year >= 1900 && year <= 2100 && 
-                                month >= 1 && month <= 12 && 
-                                day >= 1 && day <= 31 && 
-                                isValidDate(year, month, day)) {
-                                // Convert to 0-indexed for JavaScript Date
-                                validDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-                            } else {
-                                console.warn(`Invalid date excluded: ${video.publishDate} - fails validation check`);
+                if (dateRegex.test(video.publishDate)) {
+                    // Already in simple format, use as is
+                    xml += `      <video:publication_date>${video.publishDate}</video:publication_date>\n`;
+                } else {
+                    // Handle legacy dates or dates in other formats
+                    let validDate = null;
+                    
+                    // Handle different date formats
+                    if (typeof video.publishDate === 'string') {
+                        if (video.publishDate.includes('T')) {
+                            // Handle ISO 8601 format (with time components)
+                            const parsedDate = new Date(video.publishDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                validDate = parsedDate;
+                            }
+                        } else {
+                            // Try to parse other string formats
+                            const parsedDate = new Date(video.publishDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                validDate = parsedDate;
                             }
                         }
+                    } else if (video.publishDate instanceof Date && !isNaN(video.publishDate.getTime())) {
+                        validDate = video.publishDate;
                     }
-                } else if (video.publishDate instanceof Date && !isNaN(video.publishDate.getTime())) {
-                    validDate = video.publishDate;
-                }
-                
-                // If we have a valid date, format it properly
-                if (validDate && !isNaN(validDate.getTime())) {
-                    // Format the date as YYYY-MM-DDThh:mm:ss+00:00 (ISO 8601 with explicit timezone)
-                    // Google requires explicit +00:00 format instead of Z notation
-                    const year = validDate.getUTCFullYear();
-                    const month = String(validDate.getUTCMonth() + 1).padStart(2, '0');
-                    const day = String(validDate.getUTCDate()).padStart(2, '0');
-                    const hours = String(validDate.getUTCHours()).padStart(2, '0');
-                    const minutes = String(validDate.getUTCMinutes()).padStart(2, '0');
-                    const seconds = String(validDate.getUTCSeconds()).padStart(2, '0');
                     
-                    // Create the formatted date and ensure it uses +00:00 instead of Z
-                    let formattedDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
-                    formattedDate = formattedDate.replace(/Z$/, '+00:00'); // Force +00:00 and prevent Z
-                    xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
-                } else {
-                    // Invalid date - log and skip
-                    console.warn(`Invalid date excluded: ${video.publishDate} - fails date object creation`);
+                    // If we have a valid date, format it as simple YYYY-MM-DD
+                    if (validDate && !isNaN(validDate.getTime())) {
+                        const year = validDate.getUTCFullYear();
+                        const month = String(validDate.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(validDate.getUTCDate()).padStart(2, '0');
+                        
+                        // Simple YYYY-MM-DD format
+                        const formattedDate = `${year}-${month}-${day}`;
+                        xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
+                    } else {
+                        // Invalid date - log and skip
+                        console.warn(`Invalid date excluded: ${video.publishDate} - fails date object creation`);
+                    }
                 }
             } catch (error) {
                 // Skip adding publication_date if there's any error in date parsing/formatting
@@ -185,16 +174,13 @@ function generateSitemapIndex(sitemapFiles, baseUrl) {
     xml += '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
     
     sitemapFiles.forEach(file => {
-        // Format current date with explicit timezone (+00:00) instead of Z notation
+        // Format current date as YYYY-MM-DD
         const now = new Date();
         const year = now.getUTCFullYear();
         const month = String(now.getUTCMonth() + 1).padStart(2, '0');
         const day = String(now.getUTCDate()).padStart(2, '0');
-        const hours = String(now.getUTCHours()).padStart(2, '0');
-        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
-        const lastMod = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
+        const lastMod = `${year}-${month}-${day}`;
         
         xml += '  <sitemap>\n';
         xml += `    <loc>${baseUrl}/${file}</loc>\n`;
@@ -230,34 +216,11 @@ function movieToVideoEntry(movie, baseUrl) {
             
             // Validate date using helper function
             if (isValidDate(year, month, day)) {
-                const releaseDate = new Date(Date.UTC(year, month - 1, day));
-                
-                // Set a reasonable cutoff date for movies (e.g., not more than 6 months in future)
-                const maxFutureDate = new Date();
-                maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
-                
-                // Check if date is valid and not unreasonably in the future
-                if (!isNaN(releaseDate.getTime()) && releaseDate <= maxFutureDate) {
-                    try {
-                        // Format as ISO 8601 with explicit timezone (+00:00) for Google compliance
-                        const year = releaseDate.getUTCFullYear();
-                        const month = String(releaseDate.getUTCMonth() + 1).padStart(2, '0');
-                        const day = String(releaseDate.getUTCDate()).padStart(2, '0');
-                        const hours = '00';
-                        const minutes = '00';
-                        const seconds = '00';
-                        
-                        // Explicitly use +00:00 format (not Z) for Google Search Console compliance
-                        publishDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
-                    } catch (error) {
-                        console.warn(`Failed to format movie date: ${movie.release_date}`, error);
-                        // Don't set publishDate if formatting fails
-                    }
-                } else {
-                    console.warn(`Movie date excluded - invalid or too far in future: ${movie.release_date}`);
-                }
+                // Just use the simple YYYY-MM-DD format without time components
+                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
             } else {
-                console.warn(`Movie date excluded - fails validation check: ${movie.release_date}`);
+                console.warn(`Invalid date: ${year}-${month}-${day}`);
+                // Don't set publishDate for invalid dates
             }
         } else {
             console.warn(`Movie date excluded - invalid format: ${movie.release_date}`);
@@ -325,34 +288,11 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
             
             // Validate date using helper function
             if (isValidDate(year, month, day)) {
-                const firstAirDate = new Date(Date.UTC(year, month - 1, day));
-                
-                // Set a reasonable cutoff date for TV shows (e.g., not more than 6 months in future)
-                const maxFutureDate = new Date();
-                maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
-                
-                // Check if date is valid and not unreasonably in the future
-                if (!isNaN(firstAirDate.getTime()) && firstAirDate <= maxFutureDate) {
-                    try {
-                        // Format as ISO 8601 with explicit timezone (+00:00) for Google compliance
-                        const year = firstAirDate.getUTCFullYear();
-                        const month = String(firstAirDate.getUTCMonth() + 1).padStart(2, '0');
-                        const day = String(firstAirDate.getUTCDate()).padStart(2, '0');
-                        const hours = '00';
-                        const minutes = '00';
-                        const seconds = '00';
-                        
-                        // Explicitly use +00:00 format (not Z) for Google Search Console compliance
-                        publishDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
-                    } catch (error) {
-                        console.warn(`Failed to format TV show date: ${tvShow.first_air_date}`, error);
-                        // Don't set publishDate if formatting fails
-                    }
-                } else {
-                    console.warn(`TV show date excluded - invalid or too far in future: ${tvShow.first_air_date}`);
-                }
+                // Just use the simple YYYY-MM-DD format without time components
+                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
             } else {
-                console.warn(`TV show date excluded - fails validation check: ${tvShow.first_air_date}`);
+                console.warn(`Invalid date: ${year}-${month}-${day}`);
+                // Don't set publishDate for invalid dates
             }
         } else {
             console.warn(`TV show date excluded - invalid format: ${tvShow.first_air_date}`);
