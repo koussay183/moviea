@@ -934,6 +934,329 @@ app.get('/search/:q/:page?', async (req, res) => {
     res.send(await fetchAndReturn(requests.multiFetch + `&query=${req.params.q}&page=${req.params.page || 1}`));
 });
 
+// Generate a search sitemap for better search discoverability
+
+
+// Generate a search sitemap for better search discoverability
+app.get('/search-sitemap.xml', async (req, res) => {
+    try {
+        // We'll fetch popular movies and TV shows to build a sitemap with search queries
+        const [moviesResponse, tvShowsResponse] = await Promise.all([
+            fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${API_KEY}&language=en-US`),
+            fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}&language=en-US`)
+        ]);
+        
+        const movies = (await moviesResponse.json()).results || [];
+        const tvShows = (await tvShowsResponse.json()).results || [];
+        
+        // Get current date in W3C format for the lastmod tag
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(now.getUTCDate()).padStart(2, '0');
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+        
+        const lastMod = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
+        
+        // Create search sitemap XML
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+        
+        // Add search URLs for popular movies
+        movies.forEach(movie => {
+            if (movie.title) {
+                xml += '  <url>\n';
+                xml += `    <loc>${BASE_URL}/search-page?q=${encodeURIComponent(movie.title)}</loc>\n`;
+                xml += `    <lastmod>${lastMod}</lastmod>\n`;
+                xml += '    <changefreq>weekly</changefreq>\n';
+                xml += '    <priority>0.7</priority>\n';
+                xml += '  </url>\n';
+            }
+        });
+          // Add search URLs for popular TV shows
+        tvShows.forEach(show => {
+            if (show.name) {
+                xml += '  <url>\n';
+                xml += `    <loc>${BASE_URL}/search-page?q=${encodeURIComponent(show.name)}</loc>\n`;
+                xml += `    <lastmod>${lastMod}</lastmod>\n`;
+                xml += '    <changefreq>weekly</changefreq>\n';
+                xml += '    <priority>0.7</priority>\n';
+                xml += '  </url>\n';
+            }
+        });
+        
+        // Add some common genre search queries
+        const genres = ['action', 'comedy', 'drama', 'thriller', 'horror', 'romance', 'sci-fi', 'animation'];
+        genres.forEach(genre => {
+            xml += '  <url>\n';
+            xml += `    <loc>${BASE_URL}/search-page?q=${encodeURIComponent(genre)}</loc>\n`;
+            xml += `    <lastmod>${lastMod}</lastmod>\n`;
+            xml += '    <changefreq>weekly</changefreq>\n';
+            xml += '    <priority>0.5</priority>\n';
+            xml += '  </url>\n';
+        });
+        
+        xml += '</urlset>';
+        
+        // Send the sitemap
+        res.header('Content-Type', 'application/xml');
+        res.send(xml);
+    } catch (error) {
+        console.error('Error generating search sitemap:', error);
+        res.status(500).send('Error generating search sitemap');
+    }
+});
+
+// Function to detect if a request is coming from a search engine crawler or bot
+function isSearchEngineCrawler(req) {
+    const userAgent = req.get('user-agent') || '';
+    
+    // If no user agent, assume it's not a crawler
+    if (!userAgent) return false;
+    
+    const crawlers = [
+        // Major search engines
+        'googlebot', 'google-structured-data', 'adsbot-google',
+        'bingbot', 'msnbot', 'adidxbot',
+        'yandexbot', 'yandex.com/bots',
+        'duckduckbot',
+        'slurp', // Yahoo
+        'baiduspider',
+        'sogou',
+        'exabot', // Exalead
+        'seznambot', // Seznambot
+        'gigabot', // Gigablast
+        'ia_archiver', // Alexa/Internet Archive
+        
+        // Social media crawlers
+        'facebookexternalhit', 'facebot', 'whatsapp',
+        'twitterbot', 'linkedinbot', 'pinterest',
+        'slackbot', 'vkshare', 'telegrambot',
+        'redditbot', 'tumblrbot',
+        
+        // Content aggregation services
+        'flipboard', 'nuzzel', 'feedly', 'fetchrss',
+        'embedly', 'quora link preview', 'showyoubot', 'outbrain',
+        
+        // Tools and validators
+        'w3c_validator', 'chrome-lighthouse', 'google page speed', 'pagespeed',
+        'developers.google.com/+/web/snippet', 'amp-validator',
+        'gtmetrix', 'ahrefs', 'semrush', 'majestic', 
+        
+        // Preview bots
+        'skypeuripreview', 'bitlybot', 'bitrix link preview', 'xing-contenttabreceiver',
+        
+        // Other bots
+        'crawler', 'spider', 'bot', 'ahrefsbot', 'screaming frog',
+        'headlesschrome', 'phantom', 'selenium', 'wget', 'curl',
+        'archive.org_bot', 'rogerbot', 'qwantify'
+    ];
+    
+    const lowerCaseUserAgent = userAgent.toLowerCase();
+    return crawlers.some(crawler => lowerCaseUserAgent.includes(crawler));
+}
+
+app.get('/search-page', async (req, res, next) => {
+    try {
+        // Get search query from query parameters
+        const query = req.query.q;
+        const page = req.query.page || 1;
+        
+        // If no query is provided, continue to client-side rendering
+        if (!query || query.trim() === '') {
+            return next();
+        }
+        
+        // Check if the request is from a search engine crawler
+        const isBot = isSearchEngineCrawler(req);
+        
+        // If the request is from a real user, let the React app handle it
+        if (!isBot) {
+            return next(); // Pass control to the client-side React app
+        }
+        
+        // For search engine crawlers, continue with SEO-optimized server rendering
+        // Fetch search results
+        const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=${page}`);
+        const searchResults = await response.json();
+        
+        if (!searchResults || !searchResults.results || searchResults.success === false) {
+            // If search fails, continue to client-side rendering
+            return next();
+        }
+        
+        // Get user's country & language
+        const userCountry = await detectCountryFromRequest(req);
+        const userLanguage = detectLanguage(userCountry);
+        
+        // Read the index.html file
+        fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf-8', (err, data) => {
+            if (err) {
+                console.error('Error reading index.html:', err);
+                return next(); // Continue to next middleware if file read fails
+            }
+            
+            // Get top result thumbnail if available for Open Graph images
+            let imageUrl = '';
+            if (searchResults.results.length > 0) {
+                const topResult = searchResults.results[0];
+                if (topResult.poster_path) {
+                    imageUrl = `https://image.tmdb.org/t/p/w500${topResult.poster_path}`;
+                } else if (topResult.backdrop_path) {
+                    imageUrl = `https://image.tmdb.org/t/p/w780${topResult.backdrop_path}`;
+                }
+            }
+            
+            // Create content for SEO
+            const contentUrl = `${BASE_URL}/search-page?q=${encodeURIComponent(query)}${page > 1 ? `&page=${page}` : ''}`;
+            const optimizedTitle = `Search results for "${query}" - Moviea.tn`;
+            const optimizedDescription = `Find movies, TV shows, and people matching "${query}" - Page ${page} of search results on Moviea.tn.`;
+            const optimizedKeywords = `${query}, movies, search, tv shows, films, series, actors, online streaming`;
+            
+            // Format top results for structured data
+            const topResults = searchResults.results.slice(0, 5);
+            const resultNames = topResults.map(item => 
+                item.title || item.name || item.original_title || item.original_name
+            ).filter(Boolean).join(', ');
+            
+            const totalResults = searchResults.total_results || topResults.length;
+            
+                        // Generate structured data for search results
+            const structuredData = JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'SearchResultsPage',
+                'url': contentUrl,
+                'name': optimizedTitle,
+                'description': optimizedDescription,
+                'mainContentOfPage': {
+                    '@type': 'WebPageElement',
+                    'cssSelector': '#root'
+                },
+                'mainEntity': {
+                    '@type': 'ItemList',
+                    'numberOfItems': totalResults,
+                    'itemListElement': topResults.map((item, index) => ({
+                        '@type': 'ListItem',
+                        'position': index + 1,
+                        'item': {
+                            '@type': item.media_type === 'movie' ? 'Movie' : (item.media_type === 'tv' ? 'TVSeries' : 'Person'),
+                            'url': `${BASE_URL}/${item.media_type === 'movie' ? 'all-about/movie/' : (item.media_type === 'tv' ? 'all-about/tv/' : 'person/')}${item.id}`,
+                            'name': item.title || item.name || item.original_title || item.original_name,
+                            'image': item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 
+                                   (item.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : '')
+                        }
+                    }))
+                },                'potentialAction': {
+                    '@type': 'SearchAction',
+                    'target': {
+                        '@type': 'EntryPoint',
+                        'urlTemplate': `${BASE_URL}/search-page?q={search_term_string}`
+                    },
+                    'query-input': 'required name=search_term_string'
+                },
+                'pagination': {
+                    '@type': 'SiteNavigationElement',
+                    'currentPage': parseInt(page),
+                    'numberOfItems': totalResults,
+                    'numberOfPages': Math.ceil(searchResults.total_pages || 1)
+                },
+                'isPartOf': {
+                    '@type': 'WebSite',
+                    'url': BASE_URL,
+                    'name': 'Moviea.tn',
+                    'potentialAction': {
+                        '@type': 'SearchAction',
+                        'target': `${BASE_URL}/search-page?q={search_term_string}`,
+                        'query-input': 'required name=search_term_string'
+                    }
+                }
+            });
+            
+            // Create a complete SEO-optimized HTML document
+            const seoHtml = `<!doctype html>
+<html lang="${userLanguage}">
+<head>
+    <base href="/"/>
+    <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
+    <meta name="google-adsense-account" content="ca-pub-9662854573261832">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="./favicon.ico"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    
+    <!-- Enhanced SEO Meta Tags -->
+    <title>${optimizedTitle}</title>
+    <meta name="description" content="${optimizedDescription}"/>
+    <meta name="keywords" content="${optimizedKeywords}">
+    <meta name="robots" content="index, follow">
+      <!-- Open Graph / Facebook / Social Sharing -->
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="${optimizedTitle}"/>
+    <meta property="og:description" content="${optimizedDescription}"/>
+    ${imageUrl ? `<meta property="og:image" content="${imageUrl}"/>` : ''}
+    <meta property="og:url" content="${contentUrl}"/>
+    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
+    
+    <!-- Accessibility and Semantic Web Metadata -->
+    <meta name="search-results" content="true" />
+    <meta name="search-term" content="${query}" />
+    <meta name="search-results-count" content="${totalResults}" />
+    
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${optimizedTitle}">
+    <meta name="twitter:description" content="${optimizedDescription}">
+    ${imageUrl ? `<meta name="twitter:image" content="${imageUrl}">` : ''}
+    
+    <!-- Structured Data for SEO - Search Results -->
+    <script type="application/ld+json">${structuredData}</script>
+      <!-- Enhanced Link Tags -->
+    <link rel="canonical" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="x-default" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="en" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="ar" href="${contentUrl}"/>
+    <link rel="apple-touch-icon" href="./logo192.png"/>
+    <link rel="manifest" href="./manifest.json"/>
+    
+    <!-- Pagination Links for SEO -->
+    ${parseInt(page) > 1 ? 
+      `<link rel="prev" href="${BASE_URL}/search-page?q=${encodeURIComponent(query)}&page=${parseInt(page) - 1}"/>` : ''}
+    ${searchResults.total_pages && parseInt(page) < searchResults.total_pages ? 
+      `<link rel="next" href="${BASE_URL}/search-page?q=${encodeURIComponent(query)}&page=${parseInt(page) + 1}"/>` : ''}
+    
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="./static/js/main.3867268b.js" as="script">
+    <link rel="preload" href="./static/css/main.291b9921.css" as="style">
+    ${imageUrl ? `<link rel="preload" href="${imageUrl}" as="image">` : ''}
+    
+    <!-- CSS and JS -->
+    <script defer="defer" src="./static/js/main.3867268b.js"></script>
+    <link href="./static/css/main.291b9921.css" rel="stylesheet">
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>`;
+            
+            // Send the enhanced SEO-optimized HTML with proper cache headers
+            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
+            res.send(seoHtml);
+        });
+    } catch (error) {
+        console.error('Error in search-page route middleware:', error);
+        next(); // Continue to next middleware if there's an error
+    }
+});
+
 // ARABIC ROUTES ------------------------------------------------------------------------------------
 
 app.get("/arabic/categories/:id", async (req, res) => {
@@ -1064,8 +1387,7 @@ app.get('*', function(req, res) {
             return res.status(404).json({ error: 'File not found' });
         }
     }
-    
-    // For all other routes, serve the index.html for client-side routing
+      // For all other routes, serve the index.html for client-side routing
     res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
