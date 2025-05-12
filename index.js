@@ -18,12 +18,10 @@ const { requests } = require("./requests");
 const {
     detectLanguage,
     getTranslation,
-    generateKeywords,
-    generateTitle,
-    generateStructuredData,
+    generateKeywords,    generateTitle,    generateStructuredData,
     detectCountryFromRequest
-} = require('./seoHelpers');
-const { initSitemapSystem } = require('./sitemapController');
+} = require('./seo/seoHelpers');
+const { initSitemapSystem } = require('./controllers/sitemapController');
 
 const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
 
@@ -583,8 +581,8 @@ class WorkerPool {
 }
 
 // Initialize worker pools
-const movieWorkerPool = new WorkerPool(2, './movieWorker.js');
-const tvShowWorkerPool = new WorkerPool(2, './tvShowWorker.js');
+const movieWorkerPool = new WorkerPool(2, './workers/movieWorker.js');
+const tvShowWorkerPool = new WorkerPool(2, './workers/tvShowWorker.js');
 
 // Cache middleware
 const cacheMiddleware = (duration) => {

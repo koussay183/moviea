@@ -52,9 +52,23 @@ function generateVideoSitemapXML(videos) {
             xml += `      <video:duration>${video.duration}</video:duration>\n`;
         }
         
-        // Add publication date
+        // Add publication date only if it's valid
         if (video.publishDate) {
-            xml += `      <video:publication_date>${video.publishDate}</video:publication_date>\n`;
+            // Final validation before adding to XML
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (dateRegex.test(video.publishDate)) {
+                // Check for obviously invalid dates that might pass regex but be invalid
+                // (like 2023-99-99)
+                const parts = video.publishDate.split('-');
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                const day = parseInt(parts[2]);
+                
+                // Basic date validation (rough check for valid month/day ranges)
+                if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                    xml += `      <video:publication_date>${video.publishDate}</video:publication_date>\n`;
+                }
+            }
         }
         
         // Add family friendly tag
@@ -131,8 +145,27 @@ function generateSitemapIndex(sitemapFiles, baseUrl) {
 function movieToVideoEntry(movie, baseUrl) {
     // Format the duration in seconds
     const durationInSeconds = movie.runtime ? movie.runtime * 60 : undefined;
-      // Format publication date (release date) in YYYY-MM-DD format for Google compliance
-    const publishDate = movie.release_date ? movie.release_date.substring(0, 10) : undefined;
+    
+    // Format and validate publication date (release date)
+    let publishDate;
+    if (movie.release_date) {
+        // Check if the date format is valid (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        
+        if (dateRegex.test(movie.release_date)) {
+            const releaseDate = new Date(movie.release_date);
+            
+            // Set a reasonable cutoff date for movies (e.g., not more than 6 months in future)
+            const maxFutureDate = new Date();
+            maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
+            
+            // Check if date is valid and not unreasonably in the future
+            if (!isNaN(releaseDate.getTime()) && releaseDate <= maxFutureDate) {
+                // Format in YYYY-MM-DD format for Google compliance
+                publishDate = movie.release_date.substring(0, 10);
+            }
+        }
+    }
     
     // Prepare tags from genres
     const tags = movie.genres ? movie.genres.map(g => g.name) : [];
@@ -145,7 +178,9 @@ function movieToVideoEntry(movie, baseUrl) {
     // Add year as a tag if available
     if (movie.release_date) {
         const year = new Date(movie.release_date).getFullYear();
-        tags.push(year.toString());
+        if (!isNaN(year)) {
+            tags.push(year.toString());
+        }
     }
     
     // Calculate family friendly based on adult flag
@@ -157,7 +192,8 @@ function movieToVideoEntry(movie, baseUrl) {
     return {
         pageUrl: `${baseUrl}/all-about/movie/${movie.id}`,
         title: movie.title || movie.original_title,
-        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.tn`,        thumbnailUrl: movie.backdrop_path ? 
+        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.tn`,        
+        thumbnailUrl: movie.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : 
             (movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null),
         contentLoc: `https://vidsrc.to/embed/movie/${movie.id}`,
@@ -177,8 +213,27 @@ function movieToVideoEntry(movie, baseUrl) {
  * @param {string} baseUrl - Base URL for the website
  * @returns {Object} Video object for sitemap
  */
-function tvShowToVideoEntry(tvShow, baseUrl) {    // Format publication date (first air date) in YYYY-MM-DD format for Google compliance
-    const publishDate = tvShow.first_air_date ? tvShow.first_air_date.substring(0, 10) : undefined;
+function tvShowToVideoEntry(tvShow, baseUrl) {    
+    // Format and validate publication date (first air date)
+    let publishDate;
+    if (tvShow.first_air_date) {
+        // Check if the date format is valid (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        
+        if (dateRegex.test(tvShow.first_air_date)) {
+            const firstAirDate = new Date(tvShow.first_air_date);
+            
+            // Set a reasonable cutoff date for TV shows (e.g., not more than 6 months in future)
+            const maxFutureDate = new Date();
+            maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
+            
+            // Check if date is valid and not unreasonably in the future
+            if (!isNaN(firstAirDate.getTime()) && firstAirDate <= maxFutureDate) {
+                // Format in YYYY-MM-DD format for Google compliance
+                publishDate = tvShow.first_air_date.substring(0, 10);
+            }
+        }
+    }
     
     // Prepare tags from genres
     const tags = tvShow.genres ? tvShow.genres.map(g => g.name) : [];
@@ -191,7 +246,9 @@ function tvShowToVideoEntry(tvShow, baseUrl) {    // Format publication date (fi
     // Add year as a tag if available
     if (tvShow.first_air_date) {
         const year = new Date(tvShow.first_air_date).getFullYear();
-        tags.push(year.toString());
+        if (!isNaN(year)) {
+            tags.push(year.toString());
+        }
     }
     
     // Calculate family friendly based on adult flag or content rating
@@ -203,7 +260,8 @@ function tvShowToVideoEntry(tvShow, baseUrl) {    // Format publication date (fi
     return {
         pageUrl: `${baseUrl}/all-about/tv/${tvShow.id}`,
         title: tvShow.name || tvShow.original_name,
-        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.tn`,        thumbnailUrl: tvShow.backdrop_path ? 
+        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.tn`,        
+        thumbnailUrl: tvShow.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${tvShow.backdrop_path}` : 
             (tvShow.poster_path ? `https://image.tmdb.org/t/p/w780${tvShow.poster_path}` : null),
         contentLoc: `https://vidsrc.to/embed/tv/${tvShow.id}`,
