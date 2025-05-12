@@ -51,22 +51,31 @@ function generateVideoSitemapXML(videos) {
         if (video.duration) {
             xml += `      <video:duration>${video.duration}</video:duration>\n`;
         }
-        
-        // Add publication date only if it's valid
+          // Add publication date only if it's valid
         if (video.publishDate) {
-            // Final validation before adding to XML
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-            if (dateRegex.test(video.publishDate)) {
-                // Check for obviously invalid dates that might pass regex but be invalid
-                // (like 2023-99-99)
-                const parts = video.publishDate.split('-');
-                const year = parseInt(parts[0]);
-                const month = parseInt(parts[1]);
-                const day = parseInt(parts[2]);
-                
-                // Basic date validation (rough check for valid month/day ranges)
-                if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-                    xml += `      <video:publication_date>${video.publishDate}</video:publication_date>\n`;
+            // Check if already in ISO format with time components
+            if (video.publishDate.includes('T')) {
+                // Already has time components, ensure it uses +00:00 instead of Z
+                const formattedDate = video.publishDate.replace('Z', '+00:00');
+                xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
+            } else {
+                // Handle basic YYYY-MM-DD format
+                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                if (dateRegex.test(video.publishDate)) {
+                    // Check for obviously invalid dates that might pass regex but be invalid
+                    // (like 2023-99-99)
+                    const parts = video.publishDate.split('-');
+                    const year = parseInt(parts[0]);
+                    const month = parseInt(parts[1]);
+                    const day = parseInt(parts[2]);
+                    
+                    // Basic date validation (rough check for valid month/day ranges)
+                    if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                        // Format with explicit timezone (+00:00) for Google Search Console compliance
+                        const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+                        const formattedDate = date.toISOString().replace('Z', '+00:00');
+                        xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
+                    }
                 }
             }
         }
@@ -158,11 +167,15 @@ function movieToVideoEntry(movie, baseUrl) {
             // Set a reasonable cutoff date for movies (e.g., not more than 6 months in future)
             const maxFutureDate = new Date();
             maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
-            
-            // Check if date is valid and not unreasonably in the future
+              // Check if date is valid and not unreasonably in the future
             if (!isNaN(releaseDate.getTime()) && releaseDate <= maxFutureDate) {
-                // Format in YYYY-MM-DD format for Google compliance
-                publishDate = movie.release_date.substring(0, 10);
+                // Format as ISO 8601 with explicit timezone (+00:00) for Google compliance
+                const utcDate = new Date(Date.UTC(
+                    releaseDate.getFullYear(),
+                    releaseDate.getMonth(),
+                    releaseDate.getDate()
+                ));
+                publishDate = utcDate.toISOString().replace('Z', '+00:00');
             }
         }
     }
@@ -226,11 +239,15 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
             // Set a reasonable cutoff date for TV shows (e.g., not more than 6 months in future)
             const maxFutureDate = new Date();
             maxFutureDate.setMonth(maxFutureDate.getMonth() + 6);
-            
-            // Check if date is valid and not unreasonably in the future
+              // Check if date is valid and not unreasonably in the future
             if (!isNaN(firstAirDate.getTime()) && firstAirDate <= maxFutureDate) {
-                // Format in YYYY-MM-DD format for Google compliance
-                publishDate = tvShow.first_air_date.substring(0, 10);
+                // Format as ISO 8601 with explicit timezone (+00:00) for Google compliance
+                const utcDate = new Date(Date.UTC(
+                    firstAirDate.getFullYear(),
+                    firstAirDate.getMonth(),
+                    firstAirDate.getDate()
+                ));
+                publishDate = utcDate.toISOString().replace('Z', '+00:00');
             }
         }
     }
@@ -391,6 +408,7 @@ async function generateAndSaveVideoSitemaps(movies, tvShows, baseUrl, outputDir)
 
 module.exports = {
     generateAndSaveVideoSitemaps,
+    generateVideoSitemapXML,
     pingSiteMap,
     movieToVideoEntry,
     tvShowToVideoEntry
