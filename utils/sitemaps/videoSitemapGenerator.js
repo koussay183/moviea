@@ -71,47 +71,46 @@ function generateVideoSitemapXML(videos) {
         // Add publication date only if it's valid
         if (video.publishDate) {
             try {
-                // Check if publishDate is already in the simple YYYY-MM-DD format
-                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-                
-                if (dateRegex.test(video.publishDate)) {
-                    // Already in simple format, use as is
+                // Check if publishDate already has time component
+                if (video.publishDate.includes('T') && video.publishDate.includes('+')) {
+                    // Already in W3C format with time and timezone
                     xml += `      <video:publication_date>${video.publishDate}</video:publication_date>\n`;
                 } else {
-                    // Handle legacy dates or dates in other formats
-                    let validDate = null;
+                    // Handle YYYY-MM-DD format (convert to W3C format)
+                    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
                     
-                    // Handle different date formats
-                    if (typeof video.publishDate === 'string') {
-                        if (video.publishDate.includes('T')) {
-                            // Handle ISO 8601 format (with time components)
-                            const parsedDate = new Date(video.publishDate);
-                            if (!isNaN(parsedDate.getTime())) {
-                                validDate = parsedDate;
-                            }
-                        } else {
-                            // Try to parse other string formats
-                            const parsedDate = new Date(video.publishDate);
-                            if (!isNaN(parsedDate.getTime())) {
-                                validDate = parsedDate;
-                            }
-                        }
-                    } else if (video.publishDate instanceof Date && !isNaN(video.publishDate.getTime())) {
-                        validDate = video.publishDate;
-                    }
-                    
-                    // If we have a valid date, format it as simple YYYY-MM-DD
-                    if (validDate && !isNaN(validDate.getTime())) {
-                        const year = validDate.getUTCFullYear();
-                        const month = String(validDate.getUTCMonth() + 1).padStart(2, '0');
-                        const day = String(validDate.getUTCDate()).padStart(2, '0');
-                        
-                        // Simple YYYY-MM-DD format
-                        const formattedDate = `${year}-${month}-${day}`;
+                    if (dateRegex.test(video.publishDate)) {
+                        // Convert to W3C format
+                        const formattedDate = `${video.publishDate}T00:00:00+00:00`;
                         xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
                     } else {
-                        // Invalid date - log and skip
-                        console.warn(`Invalid date excluded: ${video.publishDate} - fails date object creation`);
+                        // Parse other date formats
+                        let validDate = null;
+                        
+                        // Try to handle different date formats
+                        if (typeof video.publishDate === 'string') {
+                            const parsedDate = new Date(video.publishDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                validDate = parsedDate;
+                            }
+                        } else if (video.publishDate instanceof Date && !isNaN(video.publishDate.getTime())) {
+                            validDate = video.publishDate;
+                        }
+                        
+                        // If we have a valid date, format it properly
+                        if (validDate && !isNaN(validDate.getTime())) {
+                            // Format the date as YYYY-MM-DDThh:mm:ss+00:00 (W3C format)
+                            const year = validDate.getUTCFullYear();
+                            const month = String(validDate.getUTCMonth() + 1).padStart(2, '0');
+                            const day = String(validDate.getUTCDate()).padStart(2, '0');
+                            
+                            // Create W3C format
+                            const formattedDate = `${year}-${month}-${day}T00:00:00+00:00`;
+                            xml += `      <video:publication_date>${formattedDate}</video:publication_date>\n`;
+                        } else {
+                            // Invalid date - log and skip
+                            console.warn(`Invalid date excluded: ${video.publishDate} - fails date object creation`);
+                        }
                     }
                 }
             } catch (error) {
@@ -174,13 +173,16 @@ function generateSitemapIndex(sitemapFiles, baseUrl) {
     xml += '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
     
     sitemapFiles.forEach(file => {
-        // Format current date as YYYY-MM-DD
+        // Format current date in W3C format with time and timezone
         const now = new Date();
         const year = now.getUTCFullYear();
         const month = String(now.getUTCMonth() + 1).padStart(2, '0');
         const day = String(now.getUTCDate()).padStart(2, '0');
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
         
-        const lastMod = `${year}-${month}-${day}`;
+        const lastMod = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+00:00`;
         
         xml += '  <sitemap>\n';
         xml += `    <loc>${baseUrl}/${file}</loc>\n`;
@@ -216,8 +218,8 @@ function movieToVideoEntry(movie, baseUrl) {
             
             // Validate date using helper function
             if (isValidDate(year, month, day)) {
-                // Just use the simple YYYY-MM-DD format without time components
-                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                // Use W3C format with time and timezone for Google compliance
+                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T00:00:00+00:00`;
             } else {
                 console.warn(`Invalid date: ${year}-${month}-${day}`);
                 // Don't set publishDate for invalid dates
@@ -288,8 +290,8 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
             
             // Validate date using helper function
             if (isValidDate(year, month, day)) {
-                // Just use the simple YYYY-MM-DD format without time components
-                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                // Use W3C format with time and timezone for Google compliance
+                publishDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T00:00:00+00:00`;
             } else {
                 console.warn(`Invalid date: ${year}-${month}-${day}`);
                 // Don't set publishDate for invalid dates
