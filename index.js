@@ -57,8 +57,17 @@ app.use('/movie/files/', limiter); // Apply to movie files routes
 
 // Custom middleware to intercept movie routes with numeric IDs for SEO enhancement
 app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
-    try {        const movieId = req.params[0]; // Get movie ID from regex match
-          // Detect user's country & language from request
+    try {
+        // Check if the request is from a search engine crawler
+        const isBot = isSearchEngineCrawler(req);
+        
+        // If the request is from a real user, let the React app handle it
+        if (!isBot) {
+            return next(); // Pass control to the client-side React app
+        }
+        
+        const movieId = req.params[0]; // Get movie ID from regex match
+        // Detect user's country & language from request
         const userCountry = await detectCountryFromRequest(req);
         const userLanguage = detectLanguage(userCountry);
         
@@ -205,11 +214,20 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
 // Custom middleware to intercept TV show routes with numeric IDs for SEO enhancement
 app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     try {
+        // Check if the request is from a search engine crawler
+        const isBot = isSearchEngineCrawler(req);
+        
+        // If the request is from a real user, let the React app handle it
+        if (!isBot) {
+            return next(); // Pass control to the client-side React app
+        }
+        
         const tvId = req.params[0]; // Get TV ID from regex match
-          // Detect user's country & language from request
+        // Detect user's country & language from request
         const userCountry = await detectCountryFromRequest(req);
         const userLanguage = detectLanguage(userCountry);
-          // Fetch TV show details with additional data for enhanced SEO
+        
+        // Fetch TV show details with additional data for enhanced SEO
         const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${userLanguage}`);
         let tvInfo = await response.json();
         
@@ -354,8 +372,16 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
 // Custom middleware to intercept Arabic TN TV content routes with numeric IDs for SEO enhancement
 app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
     try {
+        // Check if the request is from a search engine crawler
+        const isBot = isSearchEngineCrawler(req);
+        
+        // If the request is from a real user, let the React app handle it
+        if (!isBot) {
+            return next(); // Pass control to the client-side React app
+        }
+        
         const tvId = req.params[0]; // Get TV ID from regex match
-          // Detect user's country & language - but default to Arabic for Arabic content
+        // Detect user's country & language - but default to Arabic for Arabic content
         const userCountry = await detectCountryFromRequest(req) || 'tn';
         // Force Arabic language for Arabic TV content
         const userLanguage = 'ar';
@@ -482,6 +508,150 @@ app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
         });
     } catch (error) {
         console.error('Error in Arabic TV route middleware:', error);
+        next(); // Continue to next middleware if there's an error
+    }
+});
+
+// Custom middleware to intercept Arabic TN Movie content routes with numeric IDs for SEO enhancement
+app.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
+    try {
+        // Check if the request is from a search engine crawler
+        const isBot = isSearchEngineCrawler(req);
+        
+        // If the request is from a real user, let the React app handle it
+        if (!isBot) {
+            return next(); // Pass control to the client-side React app
+        }
+        
+        const movieId = req.params[0]; // Get movie ID from regex match
+        // Detect user's country & language - but default to Arabic for Arabic content
+        const userCountry = await detectCountryFromRequest(req) || 'tn';
+        // Force Arabic language for Arabic movie content
+        const userLanguage = 'ar';
+        
+        // Fetch movie details from the Arabic content API
+        const response = await fetch(
+            `https://content.shofha.com/api/mobile/contentFiles/${movieId}?subscriberId=8765592`,
+            { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj", "platform": 1 } }
+        );
+        
+        if (!response.ok) {
+            return next(); // Continue to next middleware if API call fails
+        }
+        
+        const movieInfo = await response.json();
+        
+        if (!movieInfo) {
+            // If movie content not found, continue to next middleware
+            return next();
+        }
+        
+        // Read the index.html file
+        fs.readFile(path.join(__dirname, 'build', 'index.html'), 'utf-8', (err, data) => {
+            if (err) {
+                console.error('Error reading index.html:', err);
+                return next(); // Continue to next middleware if file read fails
+            }
+            
+            // Use the SEO helpers to generate optimized content
+            const contentName = movieInfo.name_ar || movieInfo.name_en;
+            const contentUrl = `https://moviea.tn/tn/movie/${movieId}`;
+            const imageUrl = movieInfo.previewImageUrl || '';
+            
+            // Create Arabic content object in the format our helper functions expect
+            const arabicContent = {
+                ...movieInfo,
+                name: contentName,
+                original_language: 'ar',
+                type: movieInfo.type || 'movie',
+            };
+            
+            // Generate optimized SEO content
+            const optimizedTitle = generateTitle(arabicContent, 'arabic', userLanguage);
+            const optimizedDescription = movieInfo.description_ar || movieInfo.description_en || 
+                `${getTranslation('watch_now', userLanguage)} ${contentName} ${getTranslation('online', userLanguage)}`;
+            const optimizedKeywords = generateKeywords(arabicContent, 'arabic', userLanguage);
+            const structuredData = generateStructuredData(arabicContent, 'arabic', imageUrl, contentUrl, userLanguage);
+            
+            // Generate year and categories for additional metadata
+            const year = movieInfo.publishDate ? new Date(movieInfo.publishDate).getFullYear() : '';
+            const categories = movieInfo.categoryDTOs ? movieInfo.categoryDTOs.map(c => c.name_ar || c.name_en).join(', ') : '';
+            
+            // Create a complete SEO-optimized HTML document
+            const seoHtml = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <base href="/"/>
+    <meta name="google-site-verification" content="gfLr6FcoTJz5djitWvSO041iz7i2PLCnaR6tRgpy_eI"/>
+    <meta name="google-adsense-account" content="ca-pub-9662854573261832">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
+    <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <meta charset="utf-8"/>
+    <link rel="icon" href="./favicon.ico"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    
+    <!-- Enhanced SEO Meta Tags -->
+    <title>${optimizedTitle}</title>
+    <meta name="description" content="${optimizedDescription}"/>
+    <meta name="keywords" content="${optimizedKeywords}">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="Arabic">
+    <meta name="geo.region" content="TN">
+    ${categories ? `<meta name="category" content="${categories}">` : ''}
+    ${year ? `<meta name="year" content="${year}">` : ''}
+    
+    <!-- Open Graph / Facebook / Social Sharing -->
+    <meta property="og:type" content="video.movie"/>
+    <meta property="og:title" content="${optimizedTitle}"/>
+    <meta property="og:description" content="${optimizedDescription}"/>
+    <meta property="og:image" content="${imageUrl}"/>
+    <meta property="og:url" content="${contentUrl}"/>
+    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:locale" content="ar_TN"/>
+    
+    <!-- Twitter Card data -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${optimizedTitle}">
+    <meta name="twitter:description" content="${optimizedDescription}">
+    <meta name="twitter:image" content="${imageUrl}">
+    
+    <!-- Enhanced Structured Data for SEO -->
+    <script type="application/ld+json">${structuredData}</script>
+      <!-- Enhanced Link Tags -->
+    <link rel="canonical" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="x-default" href="${contentUrl}"/>
+    <link rel="alternate" hreflang="ar" href="${contentUrl}"/>
+    <link rel="apple-touch-icon" href="./logo192.png"/>
+    <link rel="manifest" href="./manifest.json"/>
+    
+    <!-- Inspectlet Tracking -->
+    <script type="text/javascript">!function(){window.__insp=window.__insp||[],__insp.push(["wid",489353811]);setTimeout((function(){if(void 0===window.__inspld){window.__inspld=1;var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.id="inspsync",t.src=("https:"==document.location.protocol?"https":"http")+"://cdn.inspectlet.com/inspectlet.js?wid=489353811&r="+Math.floor((new Date).getTime()/36e5);var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}}),0)}()</script>
+    
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="./static/js/main.3867268b.js" as="script">
+    <link rel="preload" href="./static/css/main.291b9921.css" as="style">
+    ${imageUrl ? `<link rel="preload" href="${imageUrl}" as="image">` : ''}
+    
+    <!-- CSS and JS -->
+    <script defer="defer" src="./static/js/main.3867268b.js"></script>
+    <link href="./static/css/main.291b9921.css" rel="stylesheet">
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>`;
+            
+            // Send the enhanced SEO-optimized HTML with proper cache headers
+            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
+            res.send(seoHtml);
+        });
+    } catch (error) {
+        console.error('Error in Arabic Movie route middleware:', error);
         next(); // Continue to next middleware if there's an error
     }
 });
