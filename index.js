@@ -25,6 +25,17 @@ const { initSitemapSystem } = require('./controllers/sitemapController');
 
 const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
 
+// Utility to safely parse JSON
+function safeJsonParse(response) {
+    return response.text().then(text => {
+        try {
+            return text ? JSON.parse(text) : null;
+        } catch (e) {
+            return null;
+        }
+    });
+}
+
 // Middleware
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
@@ -74,13 +85,13 @@ app.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
         
         // Attempt to fetch additional movie details like credits for enhanced SEO
         const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${userLanguage}`);
-        let movieInfo = await response.json();
+        let movieInfo = await safeJsonParse(response);
         
         // If we have the movie info and its original language, we can fetch it again with that language
         if (movieInfo && movieInfo.original_language && movieInfo.original_language !== userLanguage) {
             try {
                 const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${movieInfo.original_language}`);
-                const originalLangData = await detailsInOriginalLang.json();
+                const originalLangData = await safeJsonParse(detailsInOriginalLang);
                 
                 // Merge the data, prioritizing the user language data
                 Object.assign(originalLangData, movieInfo);
@@ -229,13 +240,13 @@ app.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
         
         // Fetch TV show details with additional data for enhanced SEO
         const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${userLanguage}`);
-        let tvInfo = await response.json();
+        let tvInfo = await safeJsonParse(response);
         
         // If we have the TV info and its original language, we can fetch it again with that language
         if (tvInfo && tvInfo.original_language && tvInfo.original_language !== userLanguage) {
             try {
                 const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${tvInfo.original_language}`);
-                const originalLangData = await detailsInOriginalLang.json();
+                const originalLangData = await safeJsonParse(detailsInOriginalLang);
                 
                 // Merge the data, prioritizing the user language data
                 Object.assign(originalLangData, tvInfo);
@@ -396,7 +407,7 @@ app.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
             return next(); // Continue to next middleware if API call fails
         }
         
-        const tvInfo = await response.json();
+        const tvInfo = await safeJsonParse(response);
         
         if (!tvInfo) {
             // If TV content not found, continue to next middleware
@@ -539,7 +550,7 @@ app.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
             return next(); // Continue to next middleware if API call fails
         }
         
-        const movieInfo = await response.json();
+        const movieInfo = await safeJsonParse(response);
         
         if (!movieInfo) {
             // If movie content not found, continue to next middleware
@@ -885,7 +896,10 @@ app.get("/tv/ramadan-scraper/watch/:id/:ep", (req, res) => {
 // APIS FOR THE MOVIE DB API --------------------------------------------------
 const fetchAndReturn = async (url) => {
     const res = await fetch("https://api.themoviedb.org/3" + url);
-    const data = await res.json();
+    const data = await safeJsonParse(res);
+    if (!data) {
+        throw new Error('Invalid or empty JSON from upstream API');
+    }
     return data;
 };
 
@@ -898,7 +912,11 @@ app.get('/share/movie/:id', async (req, res) => {
         const movieId = req.params.id;
         try {
             const result = await fetch("https://api.themoviedb.org/3/movie/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
-            const info = await result.json();
+            const info = await safeJsonParse(result);
+
+            if (!info) {
+                return res.status(502).send("Invalid or empty JSON from upstream API");
+            }
 
             data = data.replace('Page Title', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
             data = data.replace('Page Title2', info?.title + " | On Moviea Now" || info?.original_title + " | On Moviea Now");
@@ -931,7 +949,11 @@ app.get('/share/tn/:tvId', async (req, res) => {
                 { headers: { "authorization": "Bearer c8ij8vntrhlreqv7g8shgqvecj", "platform": 1 } }
             );
 
-            const info = await result.json();
+            const info = await safeJsonParse(result);
+
+            if (!info) {
+                return res.status(502).send("Invalid or empty JSON from upstream API");
+            }
 
             data = data.replace('Page Title', info?.name_ar + " | On Moviea Now");
             data = data.replace('Page Title2', info?.name_ar + " | On Moviea Now");
@@ -960,7 +982,11 @@ app.get('/share/tv/:id', async (req, res) => {
         const movieId = req.params.id;
         try {
             const result = await fetch("https://api.themoviedb.org/3/tv/" + movieId + "?api_key=20108f1c4ed38f7457c479849a9999cc");
-            const info = await result.json();
+            const info = await safeJsonParse(result);
+
+            if (!info) {
+                return res.status(502).send("Invalid or empty JSON from upstream API");
+            }
 
             data = data.replace('Page Title', info?.name + " | On Moviea Now");
             data = data.replace('Page Title2', info?.name + " | On Moviea Now");
@@ -1007,7 +1033,11 @@ app.get('/discover/tv/:genre/:page?', async (req, res) => {
 app.get("/similar/movie/:id/:page?", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/movie/${req.params.id}/similar?api_key=20108f1c4ed38f7457c479849a9999cc` + `&page=${req.params.page || 1}`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1015,7 +1045,11 @@ app.get("/similar/movie/:id/:page?", async (req, res) => {
 app.get("/similar/tv/:id/:page?", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/tv/${req.params.id}/similar?api_key=20108f1c4ed38f7457c479849a9999cc` + `&page=${req.params.page || 1}`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1023,7 +1057,11 @@ app.get("/similar/tv/:id/:page?", async (req, res) => {
 app.get("/movie/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=20108f1c4ed38f7457c479849a9999cc&append_to_response=videos`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1031,7 +1069,11 @@ app.get("/movie/:id", async (req, res) => {
 app.get("/tv/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=20108f1c4ed38f7457c479849a9999cc&append_to_response=videos`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1040,9 +1082,9 @@ app.get("/tv/season/:id/:season", cacheMiddleware(1800), async (req, res) => {
     try {
         const { id, season } = req.params;
         const response = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}?api_key=${API_KEY}`);
-        const data = await response.json();
+        const data = await safeJsonParse(response);
         
-        if (data.success === false) {
+        if (!data || data.success === false) {
             return res.status(404).json({ error: 'TV show or season not found' });
         }
         
@@ -1055,7 +1097,11 @@ app.get("/tv/season/:id/:season", cacheMiddleware(1800), async (req, res) => {
 app.get("/movie/credits/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/movie/${id}/credits?api_key=20108f1c4ed38f7457c479849a9999cc`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1063,7 +1109,11 @@ app.get("/movie/credits/:id", async (req, res) => {
 app.get("/movie/collection/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/collection/${id}?api_key=${API_KEY}`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1071,7 +1121,11 @@ app.get("/movie/collection/:id", async (req, res) => {
 app.get("/tv/credits/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/tv/${id}/credits?api_key=20108f1c4ed38f7457c479849a9999cc`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1079,7 +1133,11 @@ app.get("/tv/credits/:id", async (req, res) => {
 app.get("/person/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/person/${id}?api_key=20108f1c4ed38f7457c479849a9999cc`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1087,7 +1145,11 @@ app.get("/person/:id", async (req, res) => {
 app.get("/credit/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/credit/${id}?api_key=20108f1c4ed38f7457c479849a9999cc`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1095,7 +1157,11 @@ app.get("/credit/:id", async (req, res) => {
 app.get("/person/combined/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://api.themoviedb.org/3/person/${id}/combined_credits?api_key=20108f1c4ed38f7457c479849a9999cc`);
-    const data = await response.json();
+    const data = await safeJsonParse(response);
+
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
 
     res.send(data);
 });
@@ -1116,8 +1182,12 @@ app.get('/search-sitemap.xml', async (req, res) => {
             fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}&language=en-US`)
         ]);
         
-        const movies = (await moviesResponse.json()).results || [];
-        const tvShows = (await tvShowsResponse.json()).results || [];
+        const movies = await safeJsonParse(moviesResponse);
+        const tvShows = await safeJsonParse(tvShowsResponse);
+        
+        if (!movies || !tvShows) {
+            return res.status(502).send('Invalid or empty JSON from upstream API');
+        }
         
         // Get current date in W3C format for the lastmod tag
         const now = new Date();
@@ -1135,7 +1205,7 @@ app.get('/search-sitemap.xml', async (req, res) => {
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
         
         // Add search URLs for popular movies
-        movies.forEach(movie => {
+        movies.results.forEach(movie => {
             if (movie.title) {
                 xml += '  <url>\n';
                 xml += `    <loc>${BASE_URL}/search-page?q=${encodeURIComponent(movie.title)}</loc>\n`;
@@ -1146,7 +1216,7 @@ app.get('/search-sitemap.xml', async (req, res) => {
             }
         });
           // Add search URLs for popular TV shows
-        tvShows.forEach(show => {
+        tvShows.results.forEach(show => {
             if (show.name) {
                 xml += '  <url>\n';
                 xml += `    <loc>${BASE_URL}/search-page?q=${encodeURIComponent(show.name)}</loc>\n`;
@@ -1250,9 +1320,9 @@ app.get('/search-page', async (req, res, next) => {
         // For search engine crawlers, continue with SEO-optimized server rendering
         // Fetch search results
         const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=${page}`);
-        const searchResults = await response.json();
+        const searchResults = await safeJsonParse(response);
         
-        if (!searchResults || !searchResults.results || searchResults.success === false) {
+        if (!searchResults || searchResults.success === false) {
             // If search fails, continue to client-side rendering
             return next();
         }
@@ -1432,8 +1502,10 @@ app.get('/search-page', async (req, res, next) => {
 app.get("/arabic/categories/:id", async (req, res) => {
     const id = req.params.id;
     const response = await fetch(`https://content.shofha.com/api/categories/${id}?subscriberId=16640329&opCode=60502`, { headers: { authorization: "Bearer c8ij8vntrhlreqv7g8shgqvecj", platform: 1 } });
-    const data = await response.json();
-
+    const data = await safeJsonParse(response);
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
     res.send(data);
 });
 
@@ -1451,7 +1523,7 @@ app.get("/arabic/files/:id", async (req, res) => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await safeJsonParse(response);
 
         if (!data) {
             return res.status(404).json({ error: 'Content not found' });
@@ -1477,7 +1549,7 @@ app.get("/arabic/files/:id", async (req, res) => {
                     return res.json(data);
                 }
 
-                const playlistData = await playlistResponse.json();
+                const playlistData = await safeJsonParse(playlistResponse);
                 
                 if (playlistData) {
                     const newOne = { ...data, contentFilesEpisodesDTOs: playlistData };
@@ -1503,22 +1575,28 @@ app.get("/arabic/files/:id", async (req, res) => {
 app.get("/reels/:page", async (req, res) => {
     const page = req.params.page;
     const response = await fetch(`https://content.shofha.com/api/mobile/ReelsPerGeoV2?size=10&page=${page}&opCode=60502`, { headers: { authorization: "Bearer c8ij8vntrhlreqv7g8shgqvecj", platform: 1 } });
-    const data = await response.json();
-
+    const data = await safeJsonParse(response);
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
     res.send(data);
 });
 
 app.get("/ramadan/tv", async (req, res) => {
     const response = await fetch(`${BASE_URL}/tv/ramadan-scraper`);
-    const data = await response.json();
-
+    const data = await safeJsonParse(response);
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
     res.send(data);
 });
 
 app.get("/tv/ramadan/watch/:id", async (req, res) => {
     const response = await fetch(`${BASE_URL}/tv/ramadan-scraper/watch/${req.params.id}`);
-    const data = await response.json();
-
+    const data = await safeJsonParse(response);
+    if (!data) {
+        return res.status(502).json({ error: 'Invalid or empty JSON from upstream API' });
+    }
     res.send(data);
 });
 
