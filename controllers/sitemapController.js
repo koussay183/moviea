@@ -13,7 +13,7 @@ const nodeCron = require('node-cron');
 
 // Constants
 const SITEMAP_DIR = path.join(__dirname, '..', 'public', 'sitemaps');
-const BASE_URL = process.env.BASE_URL || 'https://moviea.tn';
+const BASE_URL = process.env.BASE_URL || 'https://moviea.me';
 
 // Ensure the sitemap directory exists
 async function ensureSitemapDirExists() {
@@ -73,30 +73,46 @@ async function generateFullVideoSitemap(apiKey) {
  * @param {string} apiKey - TMDB API key
  */
 function setupSitemapRoutes(app, apiKey) {
+    console.log('[Sitemap Routes] Setting up video sitemap routes...');
+    
     // Serve video sitemap files
     app.get('/video-sitemap.xml', async (req, res) => {
+        console.log('[Sitemap Route] ✓ Hit /video-sitemap.xml');
+        console.log('[Sitemap Route] Request method:', req.method);
+        console.log('[Sitemap Route] Request path:', req.path);
+        console.log('[Sitemap Route] Request URL:', req.url);
+        
         try {
             const filePath = path.join(SITEMAP_DIR, 'video-sitemap.xml');
+            console.log('[Sitemap Route] Looking for file at:', filePath);
             
             // Check if sitemap exists
             try {
                 await fs.access(filePath);
+                console.log('[Sitemap Route] Sitemap file found');
             } catch (error) {
                 // If sitemap doesn't exist, generate it
-                console.log('Video sitemap not found, generating...');
+                console.log('[Sitemap Route] Video sitemap not found, generating now...');
                 await generateFullVideoSitemap(apiKey);
+                console.log('[Sitemap Route] Generation complete');
             }
             
+            console.log('[Sitemap Route] Setting Content-Type to application/xml');
             res.header('Content-Type', 'application/xml');
+            res.header('Cache-Control', 'public, max-age=3600');
+            console.log('[Sitemap Route] Sending file:', filePath);
             res.sendFile(filePath);
         } catch (error) {
-            console.error('Error serving video sitemap:', error);
+            console.error('[Sitemap Route] ✗ Error serving video sitemap:', error);
             res.status(500).send('Error generating video sitemap');
         }
     });
+    
+    console.log('[Sitemap Routes] ✓ Registered GET /video-sitemap.xml');
 
     // Serve video sitemap index file (if it exists)
     app.get('/video-sitemap-index.xml', async (req, res) => {
+        console.log('[Sitemap Route] ✓ Hit /video-sitemap-index.xml');
         try {
             const filePath = path.join(SITEMAP_DIR, 'video-sitemap-index.xml');
             
@@ -106,16 +122,20 @@ function setupSitemapRoutes(app, apiKey) {
                 res.sendFile(filePath);
             } catch (error) {
                 // If index doesn't exist, redirect to the main sitemap
+                console.log('[Sitemap Route] Index not found, redirecting to main sitemap');
                 res.redirect('/video-sitemap.xml');
             }
         } catch (error) {
-            console.error('Error serving video sitemap index:', error);
+            console.error('[Sitemap Route] ✗ Error serving video sitemap index:', error);
             res.status(500).send('Error serving video sitemap index');
         }
     });
+    
+    console.log('[Sitemap Routes] ✓ Registered GET /video-sitemap-index.xml');
 
     // Serve any numbered video sitemap files
     app.get('/video-sitemap-:num.xml', async (req, res) => {
+        console.log(`[Sitemap Route] ✓ Hit /video-sitemap-${req.params.num}.xml`);
         try {
             const filePath = path.join(SITEMAP_DIR, `video-sitemap-${req.params.num}.xml`);
             
@@ -133,10 +153,12 @@ function setupSitemapRoutes(app, apiKey) {
                 }
             }
         } catch (error) {
-            console.error(`Error serving video sitemap ${req.params.num}:`, error);
+            console.error(`[Sitemap Route] ✗ Error serving video sitemap ${req.params.num}:`, error);
             res.status(500).send(`Error serving video sitemap ${req.params.num}`);
         }
     });
+    
+    console.log('[Sitemap Routes] ✓ Registered GET /video-sitemap-:num.xml');
     
     // Force regenerate sitemap - protect with authentication in production
     app.get('/api/regenerate-sitemap', async (req, res) => {
@@ -195,25 +217,29 @@ function initSitemapSystem(app, apiKey, options = {}) {
         cronSchedule = '0 3 * * *' 
     } = options;
     
-    // Ensure the sitemap directory exists first
+    console.log('[Sitemap Init] Registering sitemap routes synchronously...');
+    
+    // CRITICAL: Set up routes IMMEDIATELY (synchronously)
+    // This must happen before the catch-all route in index.js
+    setupSitemapRoutes(app, apiKey);
+    console.log('[Sitemap Init] Routes registered successfully');
+    
+    // Set up scheduler
+    setupSitemapScheduler(apiKey, cronSchedule);
+    
+    // Ensure directory exists and generate sitemap asynchronously
+    // (directory creation and generation can happen in background)
     ensureSitemapDirExists().then(() => {
-        // Set up routes
-        setupSitemapRoutes(app, apiKey);
-        
-        // Set up scheduler
-        setupSitemapScheduler(apiKey, cronSchedule);
-        
-        // Generate on startup if requested
         if (generateOnStartup) {
-            console.log('Initial video sitemap generation starting...');
+            console.log('[Sitemap Init] Scheduling initial video sitemap generation...');
             setTimeout(() => {
                 generateFullVideoSitemap(apiKey).catch(err => {
-                    console.error('Initial video sitemap generation failed:', err);
+                    console.error('[Sitemap Init] Initial video sitemap generation failed:', err);
                 });
-            }, 5000); // Small delay to ensure server is fully initialized
+            }, 2000); // Small delay to ensure server is fully initialized
         }
     }).catch(err => {
-        console.error('Failed to initialize sitemap system:', err);
+        console.error('[Sitemap Init] Failed to create sitemap directory:', err);
     });
 }
 

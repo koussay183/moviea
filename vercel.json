@@ -1,15 +1,14 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "./index.js",
-        "use": "@vercel/node"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/"
-      }
-    ]
-  }
+  "version": 2,
+  "builds": [
+    { "src": "index.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    // Ensure sitemap XML hits the Node server routes (not SPA index.html)
+    { "src": "/video-sitemap(.*)\\.xml", "dest": "/index.js" },
+    { "src": "/video-sitemap-index\\.xml", "dest": "/index.js" },
+    // Forward API and all other requests to the Node server
+    { "src": "/api/(.*)", "dest": "/index.js" },
+    { "src": "/(.*)", "dest": "/index.js" }
+  ]
+}

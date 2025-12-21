@@ -198,7 +198,7 @@ function movieToVideoEntry(movie, baseUrl) {
     return {
         pageUrl: `${baseUrl}/all-about/movie/${movie.id}`,
         title: movie.title || movie.original_title,
-        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.tn`,        
+        description: movie.overview || `Watch ${movie.title || movie.original_title} online on Moviea.me`,        
         thumbnailUrl: movie.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : 
             (movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null),
@@ -255,7 +255,7 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
     return {
         pageUrl: `${baseUrl}/all-about/tv/${tvShow.id}`,
         title: tvShow.name || tvShow.original_name,
-        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.tn`,        
+        description: tvShow.overview || `Watch ${tvShow.name || tvShow.original_name} online on Moviea.me`,        
         thumbnailUrl: tvShow.backdrop_path ? 
             `https://image.tmdb.org/t/p/w1280${tvShow.backdrop_path}` : 
             (tvShow.poster_path ? `https://image.tmdb.org/t/p/w780${tvShow.poster_path}` : null),
@@ -276,9 +276,13 @@ function tvShowToVideoEntry(tvShow, baseUrl) {
  * @returns {Promise<Array>} Results of ping attempts
  */
 async function pingSiteMap(sitemapUrl) {
+    // Note: Search engine ping endpoints may be deprecated.
+    // Prefer submitting via Search Console and Bing Webmaster.
     const pingUrls = [
+        // Google ping endpoint may return 404; kept for backward compatibility.
         `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-        `https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`
+        // Bing’s recommended legacy endpoint (ping may return 410 on newer endpoints).
+        `https://www.bing.com/webmaster/ping.aspx?siteMap=${encodeURIComponent(sitemapUrl)}`
     ];
     
     console.log(`Pinging search engines with sitemap: ${sitemapUrl}`);
