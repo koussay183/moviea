@@ -76,7 +76,7 @@ console.log('[App Init] ✓ Route modules registered');
 // Initialize the video sitemap system early so routes are registered BEFORE catch-all
 console.log('[App Init] Initializing video sitemap system...');
 initSitemapSystem(app, API_KEY, {
-    generateOnStartup: true,
+    generateOnStartup: false, // Disable on startup for development
     cronSchedule: '0 4 * * *' // Every day at 4 AM
 });
 console.log('[App Init] ✓ Video sitemap system initialized');

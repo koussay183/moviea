@@ -59,16 +59,17 @@ const fetchAndReturn = async (url) => {
     }
 };
 
-// /movie/files/:name
-router.get('/movie/files/:name', async (req, res) => {
+// /movie/files/:name/:runtime
+router.get('/movie/files/:name/:runtime', async (req, res) => {
     try {
         const name = req.params.name;
+        const runtime = req.params.runtime;
         // Need to access the movieWorkerPool from index.js
         // This gets passed in during registration
         if (!req.app.locals.movieWorkerPool) {
             return res.status(500).json({ error: 'Worker pool not initialized' });
         }
-        const result = await req.app.locals.movieWorkerPool.runTask(name);
+        const result = await req.app.locals.movieWorkerPool.runTask({ name, runtime });
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch movie data' });

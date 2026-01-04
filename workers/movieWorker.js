@@ -11,9 +11,6 @@ const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 };
 
-// Sanitize movie name
-const movie_name = (workerData?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
-
 async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -33,25 +30,26 @@ async function fetchWithTimeout(url, options = {}) {
 
 async function fetchWithRetries(url, options = {}, retries = 0) {
     try {
-        return await fetchWithTimeout(url, options);
+        const response = await fetchWithTimeout(url, options);
+        return response;
     } catch (error) {
         if (retries < MAX_RETRIES) {
-            console.log(`Retrying fetch for ${url} (attempt ${retries + 1}/${MAX_RETRIES})`);
             return fetchWithRetries(url, options, retries + 1);
         }
         throw error;
     }
 }
 
-async function scrapeFlixHQ() {
+async function scrapeFlixHQ(movie_name, runtime = null) {
     try {
         if (!movie_name) {
             parentPort.postMessage({ error: "No movie name provided" });
             return;
         }
 
-        console.log(`Searching for movie: "${movie_name}"`);
-        const searchUrl = `https://flixhq.to/search/${encodeURIComponent(movie_name)}`;
+        // Convert spaces to hyphens instead of URL encoding
+        const searchQuery = movie_name.replace(/\s+/g, '-');
+        const searchUrl = `https://flixhq.to/search/${searchQuery}`;
         
         const searchResponse = await fetchWithRetries(searchUrl, { headers });
         const searchHtml = await searchResponse.text();
@@ -68,14 +66,31 @@ async function scrapeFlixHQ() {
             const posterUrl = $(el).find('.film-poster img').attr('data-src');
             const quality = $(el).find('.film-poster .film-poster-quality').text().trim();
             const type = $(el).find('.film-detail .fd-infor .fdi-type').text().trim().toLowerCase();
+            const duration = $(el).find('.film-detail .fd-infor .fdi-duration').text().trim();
+
             
             if (type === 'movie') {
-                movies.push({
-                    title,
-                    href: href ? `https://flixhq.to${href}` : null,
-                    posterUrl,
-                    quality,
-                });
+                // If runtime is specified, only add movies that match the runtime
+                if (runtime) {
+                    if (duration === runtime+"m") {
+                        movies.push({
+                            title,
+                            href: href ? `https://flixhq.to${href}` : null,
+                            posterUrl,
+                            quality,
+                            duration
+                        });
+                    }
+                } else {
+                    // No runtime filter, add all movies
+                    movies.push({
+                        title,
+                        href: href ? `https://flixhq.to${href}` : null,
+                        posterUrl,
+                        quality,
+                        duration
+                    });
+                }
             }
         });
         
@@ -86,36 +101,64 @@ async function scrapeFlixHQ() {
         
         // Get the top result and extract its details
         const topMovie = movies[0];
+        
         if (!topMovie.href) {
             parentPort.postMessage({ results: movies });
             return;
         }
         
-        console.log(`Found movie: "${topMovie.title}", fetching details...`);
-        const movieResponse = await fetchWithRetries(topMovie.href, { headers });
-        const movieHtml = await movieResponse.text();
-        const moviePage = cheerio.load(movieHtml);
+        // Extract movie ID from URL (e.g., "watch-the-tank-141147" -> "141147")
+        const movieIdMatch = topMovie.href.match(/-(\d+)$/);
+        if (!movieIdMatch) {
+            parentPort.postMessage({ results: [{ ...topMovie, servers: [] }] });
+            return;
+        }
         
-        // Extract server data
-        const serverElements = moviePage('#list-server-more .server-item');
+        const movieId = movieIdMatch[1];
+        
+        // Fetch server list from ajax endpoint
+        const episodeListUrl = `https://flixhq.to/ajax/episode/list/${movieId}`;
+        const episodeListResponse = await fetchWithRetries(episodeListUrl, { headers });
+        const episodeListHtml = await episodeListResponse.text();
+        const episodePage = cheerio.load(episodeListHtml);
+        
+        // Extract servers with data-linkid
         const servers = [];
-        
-        serverElements.each((_, el) => {
-            const serverName = moviePage(el).text().trim();
-            const serverId = moviePage(el).attr('data-id');
+        episodePage('li.nav-item a[data-linkid]').each((_, el) => {
+            const serverName = episodePage(el).attr('title') || episodePage(el).find('span').text().trim();
+            const dataLinkId = episodePage(el).attr('data-linkid');
             
-            if (serverName && serverId) {
+            if (serverName && dataLinkId) {
                 servers.push({
                     name: serverName,
-                    id: serverId
+                    linkId: dataLinkId,
+                    link: null
                 });
             }
         });
+        
+        // Fetch streaming links for each server
+        for (const server of servers) {
+            try {
+                const sourcesUrl = `https://flixhq.to/ajax/episode/sources/${server.linkId}`;
+                const sourcesResponse = await fetchWithRetries(sourcesUrl, { headers });
+                const sourcesData = await sourcesResponse.json();
+                
+                // Add the link and other data to the server object
+                server.link = sourcesData.link || null;
+                server.type = sourcesData.type || null;
+                server.sources = sourcesData.sources || [];
+                server.tracks = sourcesData.tracks || [];
+            } catch (error) {
+                server.error = error.message;
+            }
+        }
         
         // Combine all data
         const result = {
             title: topMovie.title,
             url: topMovie.href,
+            movieId: movieId,
             posterUrl: topMovie.posterUrl,
             quality: topMovie.quality,
             servers
@@ -123,10 +166,24 @@ async function scrapeFlixHQ() {
         
         parentPort.postMessage({ results: [result] });
     } catch (error) {
-        console.error("MovieWorker Error:", error);
         parentPort.postMessage({ error: error.message });
     }
 }
 
-// Start the scraping process
-scrapeFlixHQ();
+// Listen for messages from the parent thread
+parentPort.on('message', (data) => {
+    // Handle both string (old format) and object (new format with runtime)
+    let movie_name, runtime;
+    
+    if (typeof data === 'string') {
+        // Old format: just movie name
+        movie_name = (data?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
+        runtime = null;
+    } else if (typeof data === 'object' && data !== null) {
+        // New format: { name, runtime }
+        movie_name = (data.name?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
+        runtime = data.runtime;
+    }
+    
+    scrapeFlixHQ(movie_name, runtime);
+});
