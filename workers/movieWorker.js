@@ -146,6 +146,8 @@ async function scrapeFlixHQ(movie_name, runtime = null) {
                 
                 // Add the link and other data to the server object
                 server.link = sourcesData.link || null;
+                const cdn = await fetchWithRetries(server.link, {headers})
+                console.log(cheerio.load(await cdn.text()).text())
                 server.type = sourcesData.type || null;
                 server.sources = sourcesData.sources || [];
                 server.tracks = sourcesData.tracks || [];
