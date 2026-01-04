@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmoviea=self.webpackChunkmoviea||[]).push([[637],{2637:(e,s,a)=>{a.r(s),a.d(s,{default:()=>u});const u={}}}]);

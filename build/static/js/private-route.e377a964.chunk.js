@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmoviea=self.webpackChunkmoviea||[]).push([[954],{1040:(e,n,s)=>{s.r(n),s.d(n,{default:()=>o});s(7313);var t=s(424),r=s(4850),a=s(7029),c=s(6417);const o=function(e){let{children:n}=e;const{currentUser:s,loading:o}=(0,r.aC)();return o?(0,c.jsx)(a.Z,{}):s?n:(0,c.jsx)(t.Fg,{to:"/login"})}}}]);
