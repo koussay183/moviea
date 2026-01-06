@@ -38,13 +38,70 @@ const { safeJsonParse, isSearchEngineCrawler, detectCountryFromRequest, detectLa
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
 
+// Host validation middleware - restrict to allowed domains
+app.use((req, res, next) => {
+    const host = req.get('host') || '';
+    const origin = req.get('origin') || '';
+    
+    // Extract hostname from origin if present
+    let originHost = '';
+    if (origin) {
+        try {
+            originHost = new URL(origin).hostname;
+        } catch (e) {
+            originHost = '';
+        }
+    }
+    
+    // Allowed patterns
+    const allowedHosts = [
+        'moviea.me',
+        'www.moviea.me',
+        'localhost',
+        'localhost:3000',
+        'localhost:5000',
+        '127.0.0.1'
+    ];
+    
+    // Check if host matches allowed patterns
+    const isAllowedHost = allowedHosts.some(allowed => host.includes(allowed)) ||
+                         host.startsWith('192.') ||
+                         host.startsWith('192.168.');
+    
+    // Check if origin matches allowed patterns  
+    const isAllowedOrigin = allowedHosts.some(allowed => originHost.includes(allowed)) ||
+                           originHost.startsWith('192.') ||
+                           originHost.startsWith('192.168.');
+    
+    // Allow if no origin header (direct requests) and host is valid, or if origin is valid
+    if (isAllowedHost || (!origin && isAllowedHost) || isAllowedOrigin) {
+        return next();
+    }
+    
+    // Block unauthorized requests
+    console.log(`[Security] Blocked request from Host: ${host}, Origin: ${origin}`);
+    return res.status(403).json({ 
+        error: 'Access forbidden',
+        message: 'This API is not available for your domain'
+    });
+});
+
 // CORS middleware
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-        "Access-Control-Allow-Headers",
-        "Origin, X-Requested-With, Content-Type, Accept"
-    );
+    const origin = req.get('origin') || '';
+    
+    // Only set CORS headers for allowed origins
+    if (origin.includes('moviea.me') || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1') ||
+        origin.match(/^https?:\/\/192\./)) {
+        res.header("Access-Control-Allow-Origin", origin);
+        res.header(
+            "Access-Control-Allow-Headers",
+            "Origin, X-Requested-With, Content-Type, Accept"
+        );
+        res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    }
     next();
 });
 
