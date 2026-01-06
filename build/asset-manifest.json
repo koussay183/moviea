@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "./static/css/main.e8f102af.css",
-    "main.js": "./static/js/main.fba01720.js",
+    "main.css": "./static/css/main.aed9ae43.css",
+    "main.js": "./static/js/main.f877118e.js",
     "static/js/933.ed4316a4.chunk.js": "./static/js/933.ed4316a4.chunk.js",
     "static/css/915.cb9abb9b.chunk.css": "./static/css/915.cb9abb9b.chunk.css",
     "static/js/915.1ddfb106.chunk.js": "./static/js/915.1ddfb106.chunk.js",
     "static/css/637.f4379473.chunk.css": "./static/css/637.f4379473.chunk.css",
     "static/js/637.a1740ab4.chunk.js": "./static/js/637.a1740ab4.chunk.js",
-    "all-about.js": "./static/js/all-about.a43a78cf.chunk.js",
+    "all-about.js": "./static/js/all-about.799c15f1.chunk.js",
     "all-movies.js": "./static/js/all-movies.2cf71db5.chunk.js",
     "watch-list.js": "./static/js/watch-list.4073fdbc.chunk.js",
     "about-cast.js": "./static/js/about-cast.49d4d5ee.chunk.js",
@@ -34,7 +34,7 @@
     "static/js/672.134281bf.chunk.js": "./static/js/672.134281bf.chunk.js",
     "static/js/295.0ef22d9d.chunk.js": "./static/js/295.0ef22d9d.chunk.js",
     "static/js/539.466bdbb6.chunk.js": "./static/js/539.466bdbb6.chunk.js",
-    "static/js/916.50489fd8.chunk.js": "./static/js/916.50489fd8.chunk.js",
+    "static/js/916.669be8d3.chunk.js": "./static/js/916.669be8d3.chunk.js",
     "static/js/131.a44c1288.chunk.js": "./static/js/131.a44c1288.chunk.js",
     "static/js/768.b209e612.chunk.js": "./static/js/768.b209e612.chunk.js",
     "static/js/561.8a56fdfc.chunk.js": "./static/js/561.8a56fdfc.chunk.js",
@@ -53,7 +53,7 @@
     "static/media/slick.woff": "./static/media/slick.295183786cd8a1389865.woff"
   },
   "entrypoints": [
-    "static/css/main.e8f102af.css",
-    "static/js/main.fba01720.js"
+    "static/css/main.aed9ae43.css",
+    "static/js/main.f877118e.js"
   ]
 }
