@@ -121,6 +121,113 @@ app.use('/api/', limiter); // Apply to API routes only
 app.use('/tv/files/', limiter); // Apply to TV files routes
 app.use('/movie/files/', limiter); // Apply to movie files routes
 
+// API protection middleware - prevent direct browser access to API endpoints
+app.use((req, res, next) => {
+    // Define API paths that should be protected
+    const apiPaths = [
+        '/api/',
+        '/tv/files/',
+        '/movie/files/',
+        '/genres/',
+        '/discover/',
+        '/similar/',
+        '/person/',
+        '/credit/',
+        '/search/',
+        '/arabic/',
+        '/reels/',
+        '/ramadan/'
+    ];
+    
+    // Check if this is an API request
+    const isApiRequest = apiPaths.some(path => req.path.startsWith(path));
+    
+    if (isApiRequest) {
+        const acceptHeader = req.get('accept') || '';
+        const referer = req.get('referer') || '';
+        const xRequestedWith = req.get('x-requested-with');
+        
+        // Allow if:
+        // 1. Request explicitly accepts JSON
+        // 2. Referer is from moviea.me domain
+        // 3. Has X-Requested-With header (AJAX request)
+        // 4. Is from localhost/development
+        const isFromFrontend = acceptHeader.includes('application/json') ||
+                              referer.includes('moviea.me') ||
+                              referer.includes('localhost') ||
+                              referer.match(/192\.\d+\.\d+\.\d+/) ||
+                              xRequestedWith === 'XMLHttpRequest';
+        
+        // Block direct browser access (requesting HTML instead of JSON)
+        if (!isFromFrontend && acceptHeader.includes('text/html')) {
+            console.log(`[API Protection] Blocked direct browser access to: ${req.path}`);
+            return res.status(403).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Nope!</title>
+                    <style>
+                        body { 
+                            font-family: 'Comic Sans MS', 'Arial', sans-serif; 
+                            text-align: center; 
+                            padding: 20px;
+                            background: #000;
+                            color: #0f0;
+                            min-height: 100vh;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                        }
+                        h1 { 
+                            color: #f00; 
+                            font-size: 4em;
+                            margin: 10px 0;
+                            animation: blink 1s infinite;
+                        }
+                        @keyframes blink {
+                            0%, 50%, 100% { opacity: 1; }
+                            25%, 75% { opacity: 0.3; }
+                        }
+                        p {
+                            font-size: 1.5em;
+                            margin: 15px 0;
+                            max-width: 600px;
+                        }
+                        .gif-container {
+                            margin: 20px 0;
+                        }
+                        img {
+                            max-width: 500px;
+                            width: 100%;
+                            height: auto;
+                            border: 3px solid #0f0;
+                        }
+                        .code {
+                            font-family: 'Courier New', monospace;
+                            color: #f0f;
+                            margin: 10px 0;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>🚨 ACCESS DENIED 🚨</h1>
+                    <div class="gif-container">
+                        <img src="https://media.giphy.com/media/YQitE4YNQNahy/giphy.gif" alt="You shall not pass" />
+                    </div>
+                    <p>😂 LOL! Did you really think you could just waltz in here and grab our API data?</p>
+                    <p>Nice try, script kiddie! 🤓</p>
+                    <p class="code">// TODO: Learn how to use a website properly</p>
+                    <p>🎬 This is a movie site, not an open buffet! 🍿</p>
+                </body>
+                </html>
+            `);
+        }
+    }
+    
+    next();
+});
+
 // Register routes
 console.log('[App Init] Registering route modules...');
 app.use('/', apiRoutes);
