@@ -40,7 +40,8 @@ async function fetchWithRetries(url, options = {}, retries = 0) {
     }
 }
 
-async function scrapeFlixHQ(movie_name, runtime = null) {
+// Famous Player Scraper
+async function scrapeFlixHQ(movie_name, runtime = null, imdb_id) {
     try {
         if (!movie_name) {
             parentPort.postMessage({ error: "No movie name provided" });
@@ -172,20 +173,55 @@ async function scrapeFlixHQ(movie_name, runtime = null) {
     }
 }
 
-// Listen for messages from the parent thread
-parentPort.on('message', (data) => {
-    // Handle both string (old format) and object (new format with runtime)
-    let movie_name, runtime;
-    
-    if (typeof data === 'string') {
-        // Old format: just movie name
-        movie_name = (data?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
-        runtime = null;
-    } else if (typeof data === 'object' && data !== null) {
-        // New format: { name, runtime }
-        movie_name = (data.name?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
-        runtime = data.runtime;
+// VidSRC PRO scraper
+async function scraperCineby(imdb_id) {
+    try {
+        if (!imdb_id) {
+            return null;
+        }
+
+        const url = `https://cineby.biz/embed/movie?imdb=${imdb_id}`;
+        const fetchedResponse = await fetchWithRetries(url, { headers });
+        
+        if (!fetchedResponse.ok) {
+            return null;
+        }
+        
+        const searchHtml = await fetchedResponse.text();
+        const $ = cheerio.load(searchHtml);
+        const stream = $("#player_iframe").attr('src');
+        
+        return stream || null;
+    } catch (error) {
+        return null;
     }
-    
-    scrapeFlixHQ(movie_name, runtime);
+}
+// Listen for messages from the parent thread
+parentPort.on('message', async (data) => {
+    try {
+        // Handle both string (old format) and object (new format with runtime)
+        let movie_name, runtime, imdb_id;
+        
+        if (typeof data === 'string') {
+            // Old format: just movie name
+            movie_name = (data?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
+            runtime = null;
+        } else if (typeof data === 'object' && data !== null) {
+            // New format: { name, runtime }
+            movie_name = (data.name?.trim() || "").toLowerCase().replace(/[^0-9a-z]/g, " ").trim();
+            runtime = data.runtime;
+            imdb_id = data.imdb_id;
+        }
+        
+        // This Function is scraping the most famous player know i still have some issues in knwoing how they loading the script bundle from the player until i find a solution and the architecture i will use another scraper
+        // scrapeFlixHQ(movie_name, runtime);
+        
+        const vidsrcProStream = await scraperCineby(imdb_id);
+
+        parentPort.postMessage({ results: [
+            {target: "vidsrcPro", stream: vidsrcProStream}
+        ] });
+    } catch (error) {
+        parentPort.postMessage({ error: error.message });
+    }
 });
