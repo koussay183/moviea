@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const { Worker } = require("worker_threads");
 const path = require('path');
@@ -12,6 +15,7 @@ const arabicRoutes = require('./routes/arabic');
 const seoRoutes = require('./routes/seo');
 const shareRoutes = require('./routes/share');
 const sitemapRoutes = require('./routes/sitemap');
+const facebookRoutes = require('./routes/facebook');
 
 // Initialize cache with 30 minutes TTL
 const cache = new NodeCache({ stdTTL: 1800 });
@@ -28,6 +32,7 @@ const {
     generateStructuredData
 } = require('./seo/seoHelpers');
 const { initSitemapSystem } = require('./controllers/sitemapController');
+const { initFacebookCron } = require('./workers/facebookCron');
 
 const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
 
@@ -247,6 +252,7 @@ app.use('/', arabicRoutes);
 app.use('/', seoRoutes);
 app.use('/share', shareRoutes);
 app.use('/', sitemapRoutes);
+app.use('/api/facebook', facebookRoutes);
 console.log('[App Init] ✓ Route modules registered');
 
 // Initialize the video sitemap system early so routes are registered BEFORE catch-all
@@ -451,4 +457,9 @@ process.on('SIGTERM', () => {
 });
 
 
-const server = app.listen(port, () => console.log(`Server running on port ${port}`));
+const server = app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    
+    // Initialize Facebook daily movie cron job
+    initFacebookCron();
+});
