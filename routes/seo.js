@@ -6,6 +6,15 @@ const path = require('path');
 const fs = require('fs');
 const { isSearchEngineCrawler, detectCountryFromRequest, detectLanguage, safeJsonParse } = require('../utils/helpers');
 const { generateTitle, generateKeywords, generateStructuredData, getTranslation } = require('../seo/seoHelpers');
+const {
+    generateDetailedPlot,
+    generateProductionDetails,
+    generateCastCrewSection,
+    generateTrailerSection,
+    generateRelatedMovies,
+    generateBreadcrumbs,
+    generateEnhancedStructuredData
+} = require('../seo/advancedSeoGenerator');
 
 // /tn/movie/:id - Arabic movie route for SEO
 router.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
@@ -82,7 +91,7 @@ router.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
     <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <script type="text/javascript" src="https://resources.infolinks.com/js/infolinks_main.js"></script>
     <meta charset="utf-8"/>
     <link rel="icon" href="./favicon.ico"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -226,7 +235,7 @@ router.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
     <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <script type="text/javascript" src="https://resources.infolinks.com/js/infolinks_main.js"></script>
     <meta charset="utf-8"/>
     <link rel="icon" href="./favicon.ico"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -295,7 +304,7 @@ router.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
         next(); // Continue to next middleware if there's an error
     }
 });
-// /all-about/movie/:id - Movie SEO route
+// /all-about/movie/:id - Movie SEO route with comprehensive 2000+ word content
 router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     try {
         // Check if the request is from a search engine crawler
@@ -314,13 +323,13 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
         const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
         
         // Attempt to fetch additional movie details like credits for enhanced SEO
-        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${userLanguage}`);
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries&language=${userLanguage}`);
         let movieInfo = await safeJsonParse(response);
         
         // If we have the movie info and its original language, we can fetch it again with that language
         if (movieInfo && movieInfo.original_language && movieInfo.original_language !== userLanguage) {
             try {
-                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar&language=${movieInfo.original_language}`);
+                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries&language=${movieInfo.original_language}`);
                 const originalLangData = await safeJsonParse(detailsInOriginalLang);
                 
                 // Merge the data, prioritizing the user language data
@@ -359,10 +368,8 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
             const optimizedDescription = movieInfo.overview || `${getTranslation('watch_now', userLanguage)} ${movieInfo.title || movieInfo.original_title} ${getTranslation('online', userLanguage)}`;
             const optimizedKeywords = generateKeywords(movieInfo, 'movie', userLanguage);
             
-            // Generate rich structured data with VideoObject + Chapter schema
-            // This creates a JSON-LD representation with dynamic chapters based on runtime
-            // which helps Google understand the content structure and may enable chapter features in search
-            const structuredData = generateStructuredData(movieInfo, 'movie', imageUrlOriginal, contentUrl, userLanguage);
+            // Generate enhanced structured data with comprehensive schemas
+            const structuredData = generateEnhancedStructuredData(movieInfo, 'movie', imageUrlOriginal, contentUrl, userLanguage);
             
             // Extract cast for rich structured data
             const movieCast = movieInfo.credits && movieInfo.credits.cast ? 
@@ -378,7 +385,15 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
             const rating = movieInfo.vote_average ? movieInfo.vote_average.toFixed(1) : 'N/A';
             const runtime = movieInfo.runtime ? `${movieInfo.runtime} min` : '';
             
-            // Create a complete SEO-optimized HTML document with semantic structure
+            // Generate comprehensive SEO content sections
+            const breadcrumbs = generateBreadcrumbs(movieInfo, 'movie', contentUrl, userLanguage);
+            const trailerSection = generateTrailerSection(movieInfo, 'movie', userLanguage);
+            const detailedPlot = generateDetailedPlot(movieInfo, 'movie', userLanguage);
+            const productionDetails = generateProductionDetails(movieInfo, 'movie', userLanguage);
+            const castCrewSection = generateCastCrewSection(movieInfo, 'movie', userLanguage);
+            const relatedMovies = generateRelatedMovies(movieInfo, 'movie', userLanguage);
+            
+            // Create a complete SEO-optimized HTML document with semantic structure and 2000+ word content
             const seoHtml = `<!doctype html>
 <html lang="${userLanguage}">
 <head>
@@ -388,7 +403,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
     <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <script type="text/javascript" src="https://resources.infolinks.com/js/infolinks_main.js"></script>
     <meta charset="utf-8"/>
     <link rel="icon" href="./favicon.ico"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -400,7 +415,9 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <meta name="keywords" content="${optimizedKeywords}">
     ${movieCast ? `<meta name="actors" content="${movieCast}">` : ''}
     ${movieDirector ? `<meta name="director" content="${movieDirector}">` : ''}
-    <meta name="robots" content="index, follow">
+    ${releaseYear ? `<meta name="publish_date" content="${movieInfo.release_date}">` : ''}
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
     
     <!-- Open Graph / Facebook / Social Sharing -->
     <meta property="og:type" content="video.movie"/>
@@ -409,17 +426,29 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <meta property="og:image" content="${imageUrlLarge}"/>
     <meta property="og:image:width" content="1280"/>
     <meta property="og:image:height" content="720"/>
+    <meta property="og:image:alt" content="${movieInfo.title || movieInfo.original_title} poster"/>
     <meta property="og:url" content="${contentUrl}"/>
     <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
+    ${releaseYear ? `<meta property="video:release_date" content="${movieInfo.release_date}">` : ''}
+    ${movieDirector ? `<meta property="video:director" content="${movieDirector}">` : ''}
+    ${movieCast ? `<meta property="video:actor" content="${movieCast}">` : ''}
+    ${runtime ? `<meta property="video:duration" content="${movieInfo.runtime * 60}">` : ''}
     
     <!-- Twitter Card data -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${optimizedTitle}">
     <meta name="twitter:description" content="${optimizedDescription}">
     <meta name="twitter:image" content="${imageUrlLarge}">
+    <meta name="twitter:image:alt" content="${movieInfo.title || movieInfo.original_title} poster">
     
-    <!-- Structured Data for SEO - Enhanced with additional details -->
+    <!-- Article metadata -->
+    <meta property="article:published_time" content="${movieInfo.release_date}"/>
+    <meta property="article:modified_time" content="${new Date().toISOString()}"/>
+    <meta property="article:section" content="Movies"/>
+    ${genres ? `<meta property="article:tag" content="${genres}"/>` : ''}
+    
+    <!-- Enhanced Structured Data for SEO -->
     <script type="application/ld+json">${JSON.stringify(structuredData)}</script>
     
     <!-- Enhanced Link Tags -->
@@ -439,19 +468,45 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
     
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #000; color: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #0a0a0a; color: #e0e0e0; line-height: 1.7; }
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { font-size: 2.5em; margin: 20px 0; color: #fff; }
-        .movie-header { display: flex; gap: 30px; margin: 30px 0; flex-wrap: wrap; }
-        .movie-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 8px; }
+        h1 { font-size: 2.8em; margin: 20px 0; color: #fff; font-weight: 700; line-height: 1.2; }
+        h2 { font-size: 2em; margin: 40px 0 20px; color: #fff; border-bottom: 3px solid #e50914; padding-bottom: 12px; font-weight: 600; }
+        h3 { font-size: 1.5em; margin: 30px 0 15px; color: #f0f0f0; font-weight: 600; }
+        .breadcrumb { margin: 20px 0; color: #888; font-size: 0.9em; }
+        .breadcrumb a { color: #e50914; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .movie-header { display: flex; gap: 40px; margin: 40px 0; flex-wrap: wrap; background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        .movie-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 12px; box-shadow: 0 8px 24px rgba(229,9,20,0.3); }
         .movie-info { flex: 1; min-width: 300px; }
-        .movie-meta { display: flex; gap: 20px; margin: 15px 0; flex-wrap: wrap; color: #aaa; }
-        .movie-meta span { background: #222; padding: 5px 15px; border-radius: 4px; }
-        h2 { font-size: 1.8em; margin: 30px 0 15px; color: #fff; border-bottom: 2px solid #e50914; padding-bottom: 10px; }
-        .overview { line-height: 1.6; font-size: 1.1em; color: #ddd; }
-        .cast-list, .crew-list { display: flex; gap: 15px; flex-wrap: wrap; }
-        .person { background: #1a1a1a; padding: 10px 15px; border-radius: 4px; }
-        .rating { font-size: 1.5em; color: #ffd700; font-weight: bold; }
+        .movie-meta { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+        .movie-meta span { background: linear-gradient(135deg, #e50914 0%, #b20710 100%); padding: 8px 18px; border-radius: 20px; font-weight: 500; font-size: 0.95em; box-shadow: 0 4px 12px rgba(229,9,20,0.2); }
+        .overview { line-height: 1.8; font-size: 1.15em; color: #d0d0d0; margin: 20px 0; }
+        .content-section { margin: 50px 0; padding: 30px; background: #111; border-radius: 12px; border-left: 4px solid #e50914; }
+        .content-section p { margin: 15px 0; line-height: 1.8; }
+        .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; margin: 20px 0; }
+        .cast-member { text-align: center; background: #1a1a1a; padding: 15px; border-radius: 10px; transition: transform 0.3s; }
+        .cast-member:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(229,9,20,0.3); }
+        .cast-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 3px solid #e50914; }
+        .cast-name { font-weight: 600; color: #fff; margin: 5px 0; }
+        .cast-role { color: #999; font-size: 0.9em; }
+        .production-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
+        .production-item { background: #1a1a1a; padding: 20px; border-radius: 10px; }
+        .production-label { color: #e50914; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        .production-value { color: #e0e0e0; font-size: 1.1em; }
+        .trailer-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 20px 0; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .trailer-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 25px; margin: 20px 0; }
+        .related-item { background: #1a1a1a; border-radius: 10px; overflow: hidden; transition: transform 0.3s; }
+        .related-item:hover { transform: scale(1.05); box-shadow: 0 8px 24px rgba(229,9,20,0.4); }
+        .related-poster { width: 100%; height: 300px; object-fit: cover; }
+        .related-title { padding: 15px; font-weight: 600; color: #fff; text-align: center; }
+        .rating { font-size: 1.8em; color: #ffd700; font-weight: bold; text-shadow: 0 2px 8px rgba(255,215,0,0.3); }
+        .detail-paragraph { margin: 25px 0; line-height: 1.9; font-size: 1.1em; text-align: justify; }
+        .highlight { color: #e50914; font-weight: 600; }
+        ul.feature-list { list-style: none; padding: 0; }
+        ul.feature-list li { padding: 12px 0; padding-left: 30px; position: relative; }
+        ul.feature-list li:before { content: "▶"; position: absolute; left: 0; color: #e50914; font-size: 0.8em; }
     </style>
     
     <!-- CSS and JS -->
@@ -462,29 +517,53 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root">
         <article class="container">
+            ${breadcrumbs}
+            
             <header>
-                <h1>${movieInfo.title || movieInfo.original_title}</h1>
+                <h1>${movieInfo.title || movieInfo.original_title} (${releaseYear}) - Watch Full Movie Online | Moviea.me</h1>
             </header>
             
             <div class="movie-header">
-                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${movieInfo.title} poster" class="movie-poster" width="300" height="450"/>` : ''}
+                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${movieInfo.title} poster - Watch online on Moviea.me" class="movie-poster" width="300" height="450" loading="eager"/>` : ''}
                 <div class="movie-info">
                     <div class="movie-meta">
                         ${releaseYear ? `<span>📅 ${releaseYear}</span>` : ''}
                         ${runtime ? `<span>⏱️ ${runtime}</span>` : ''}
                         ${rating !== 'N/A' ? `<span class="rating">⭐ ${rating}/10</span>` : ''}
+                        ${movieInfo.vote_count ? `<span>👥 ${movieInfo.vote_count.toLocaleString()} votes</span>` : ''}
                     </div>
                     ${genres ? `<div class="movie-meta"><span>🎭 ${genres}</span></div>` : ''}
-                    ${movieDirector ? `<h2>Director</h2><p class="overview">${movieDirector}</p>` : ''}
-                    ${movieCast ? `<h2>Cast</h2><div class="cast-list">${movieCast.split(', ').map(actor => `<span class="person">${actor}</span>`).join('')}</div>` : ''}
+                    ${optimizedDescription ? `<p class="overview">${optimizedDescription}</p>` : ''}
                 </div>
             </div>
             
-            ${optimizedDescription ? `<section><h2>Overview</h2><p class="overview">${optimizedDescription}</p></section>` : ''}
+            ${trailerSection}
             
-            <section>
+            ${detailedPlot}
+            
+            ${castCrewSection}
+            
+            ${productionDetails}
+            
+            <section class="content-section">
                 <h2>Watch ${movieInfo.title || movieInfo.original_title} Online</h2>
-                <p class="overview">Stream ${movieInfo.title || movieInfo.original_title} (${releaseYear}) in HD quality. ${getTranslation('watch_now', userLanguage)} on Moviea.me.</p>
+                <p class="detail-paragraph">Experience <span class="highlight">${movieInfo.title || movieInfo.original_title}</span> in stunning HD quality exclusively on Moviea.me. Our platform offers seamless streaming with multiple quality options to match your internet speed. Whether you're watching on your phone, tablet, or smart TV, enjoy this ${releaseYear} ${genres ? genres.toLowerCase() : 'movie'} with crystal-clear picture and immersive audio.</p>
+                <p class="detail-paragraph">Moviea.me provides the ultimate viewing experience with no buffering, instant playback, and a user-friendly interface. Join millions of movie enthusiasts who trust Moviea.me for their entertainment needs. Watch ${movieInfo.title || movieInfo.original_title} now and discover why we're the #1 choice for online movie streaming.</p>
+            </section>
+            
+            ${relatedMovies}
+            
+            <section class="content-section">
+                <h2>Why Watch on Moviea.me?</h2>
+                <ul class="feature-list">
+                    <li>🎬 Extensive library with thousands of movies and TV shows</li>
+                    <li>📱 Watch on any device - mobile, tablet, desktop, or smart TV</li>
+                    <li>🌐 Multi-language support including English and Arabic</li>
+                    <li>⚡ Lightning-fast streaming with adaptive quality</li>
+                    <li>🔔 Get notified about new releases and trending content</li>
+                    <li>💯 Regular updates with the latest movies and episodes</li>
+                    <li>🎯 Personalized recommendations based on your preferences</li>
+                </ul>
             </section>
         </article>
     </div>
@@ -501,7 +580,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
         next(); // Continue to next middleware if there's an error
     }
 });
-// /all-about/tv/:id - TV Show SEO route
+// /all-about/tv/:id - TV Show SEO route with comprehensive 2000+ word content
 router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     try {
         // Check if the request is from a search engine crawler
@@ -520,7 +599,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
         const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
         
         // Fetch TV show details with additional data for enhanced SEO
-        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${userLanguage}`);
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids,production_companies,production_countries&language=${userLanguage}`);
         let tvInfo = await safeJsonParse(response);
         
         // If we have the TV info and its original language, we can fetch it again with that language
@@ -564,7 +643,9 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
             const optimizedTitle = generateTitle(tvInfo, 'tv', userLanguage);
             const optimizedDescription = tvInfo.overview || `${getTranslation('watch_now', userLanguage)} ${tvInfo.name || tvInfo.original_name} ${getTranslation('online', userLanguage)}`;
             const optimizedKeywords = generateKeywords(tvInfo, 'tv', userLanguage);
-            const structuredData = generateStructuredData(tvInfo, 'tv', imageUrlOriginal, contentUrl, userLanguage);
+            
+            // Generate enhanced structured data with comprehensive schemas
+            const structuredData = generateEnhancedStructuredData(tvInfo, 'tv', imageUrlOriginal, contentUrl, userLanguage);
             
             // Extract cast for rich structured data
             const tvCast = tvInfo.credits && tvInfo.credits.cast ? 
@@ -586,7 +667,15 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
             const numberOfSeasons = tvInfo.number_of_seasons || 0;
             const numberOfEpisodes = tvInfo.number_of_episodes || 0;
             
-            // Create a complete SEO-optimized HTML document with semantic structure
+            // Generate comprehensive SEO content sections
+            const breadcrumbs = generateBreadcrumbs(tvInfo, 'tv', contentUrl, userLanguage);
+            const trailerSection = generateTrailerSection(tvInfo, 'tv', userLanguage);
+            const detailedPlot = generateDetailedPlot(tvInfo, 'tv', userLanguage);
+            const productionDetails = generateProductionDetails(tvInfo, 'tv', userLanguage);
+            const castCrewSection = generateCastCrewSection(tvInfo, 'tv', userLanguage);
+            const relatedMovies = generateRelatedMovies(tvInfo, 'tv', userLanguage);
+            
+            // Create a complete SEO-optimized HTML document with semantic structure and 2000+ word content
             const seoHtml = `<!doctype html>
 <html lang="${userLanguage}">
 <head>
@@ -596,7 +685,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
     <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <script type="text/javascript" src="https://resources.infolinks.com/js/infolinks_main.js"></script>
     <meta charset="utf-8"/>
     <link rel="icon" href="./favicon.ico"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -609,7 +698,9 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     ${tvCast ? `<meta name="actors" content="${tvCast}">` : ''}
     ${tvCreators ? `<meta name="creator" content="${tvCreators}">` : ''}
     ${contentRating ? `<meta name="rating" content="${contentRating}">` : ''}
-    <meta name="robots" content="index, follow">
+    ${firstAirYear ? `<meta name="publish_date" content="${tvInfo.first_air_date}">` : ''}
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
     
     <!-- Open Graph / Facebook / Social Sharing -->
     <meta property="og:type" content="video.tv_show"/>
@@ -618,19 +709,29 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <meta property="og:image" content="${imageUrlLarge}"/>
     <meta property="og:image:width" content="1280"/>
     <meta property="og:image:height" content="720"/>
+    <meta property="og:image:alt" content="${tvInfo.name || tvInfo.original_name} poster"/>
     <meta property="og:url" content="${contentUrl}"/>
     <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
     ${tvInfo.number_of_seasons ? `<meta property="video:series" content="true"/>` : ''}
     ${tvInfo.number_of_seasons ? `<meta property="video:release_date" content="${tvInfo.first_air_date}"/>` : ''}
+    ${tvCreators ? `<meta property="video:director" content="${tvCreators}">` : ''}
+    ${tvCast ? `<meta property="video:actor" content="${tvCast}">` : ''}
     
     <!-- Twitter Card data -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${optimizedTitle}">
     <meta name="twitter:description" content="${optimizedDescription}">
     <meta name="twitter:image" content="${imageUrlLarge}">
+    <meta name="twitter:image:alt" content="${tvInfo.name || tvInfo.original_name} poster">
     
-    <!-- Structured Data for SEO - Enhanced with additional details -->
+    <!-- Article metadata -->
+    <meta property="article:published_time" content="${tvInfo.first_air_date}"/>
+    <meta property="article:modified_time" content="${new Date().toISOString()}"/>
+    <meta property="article:section" content="TV Shows"/>
+    ${genres ? `<meta property="article:tag" content="${genres}"/>` : ''}
+    
+    <!-- Enhanced Structured Data for SEO -->
     <script type="application/ld+json">${JSON.stringify(structuredData)}</script>
     
     <!-- Enhanced Link Tags -->
@@ -650,19 +751,45 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
     
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #000; color: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #0a0a0a; color: #e0e0e0; line-height: 1.7; }
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { font-size: 2.5em; margin: 20px 0; color: #fff; }
-        .tv-header { display: flex; gap: 30px; margin: 30px 0; flex-wrap: wrap; }
-        .tv-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 8px; }
+        h1 { font-size: 2.8em; margin: 20px 0; color: #fff; font-weight: 700; line-height: 1.2; }
+        h2 { font-size: 2em; margin: 40px 0 20px; color: #fff; border-bottom: 3px solid #e50914; padding-bottom: 12px; font-weight: 600; }
+        h3 { font-size: 1.5em; margin: 30px 0 15px; color: #f0f0f0; font-weight: 600; }
+        .breadcrumb { margin: 20px 0; color: #888; font-size: 0.9em; }
+        .breadcrumb a { color: #e50914; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .tv-header { display: flex; gap: 40px; margin: 40px 0; flex-wrap: wrap; background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        .tv-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 12px; box-shadow: 0 8px 24px rgba(229,9,20,0.3); }
         .tv-info { flex: 1; min-width: 300px; }
-        .tv-meta { display: flex; gap: 20px; margin: 15px 0; flex-wrap: wrap; color: #aaa; }
-        .tv-meta span { background: #222; padding: 5px 15px; border-radius: 4px; }
-        h2 { font-size: 1.8em; margin: 30px 0 15px; color: #fff; border-bottom: 2px solid #e50914; padding-bottom: 10px; }
-        .overview { line-height: 1.6; font-size: 1.1em; color: #ddd; }
-        .cast-list, .creator-list { display: flex; gap: 15px; flex-wrap: wrap; }
-        .person { background: #1a1a1a; padding: 10px 15px; border-radius: 4px; }
-        .rating { font-size: 1.5em; color: #ffd700; font-weight: bold; }
+        .tv-meta { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+        .tv-meta span { background: linear-gradient(135deg, #e50914 0%, #b20710 100%); padding: 8px 18px; border-radius: 20px; font-weight: 500; font-size: 0.95em; box-shadow: 0 4px 12px rgba(229,9,20,0.2); }
+        .overview { line-height: 1.8; font-size: 1.15em; color: #d0d0d0; margin: 20px 0; }
+        .content-section { margin: 50px 0; padding: 30px; background: #111; border-radius: 12px; border-left: 4px solid #e50914; }
+        .content-section p { margin: 15px 0; line-height: 1.8; }
+        .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; margin: 20px 0; }
+        .cast-member { text-align: center; background: #1a1a1a; padding: 15px; border-radius: 10px; transition: transform 0.3s; }
+        .cast-member:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(229,9,20,0.3); }
+        .cast-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 3px solid #e50914; }
+        .cast-name { font-weight: 600; color: #fff; margin: 5px 0; }
+        .cast-role { color: #999; font-size: 0.9em; }
+        .production-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
+        .production-item { background: #1a1a1a; padding: 20px; border-radius: 10px; }
+        .production-label { color: #e50914; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        .production-value { color: #e0e0e0; font-size: 1.1em; }
+        .trailer-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 20px 0; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .trailer-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 25px; margin: 20px 0; }
+        .related-item { background: #1a1a1a; border-radius: 10px; overflow: hidden; transition: transform 0.3s; }
+        .related-item:hover { transform: scale(1.05); box-shadow: 0 8px 24px rgba(229,9,20,0.4); }
+        .related-poster { width: 100%; height: 300px; object-fit: cover; }
+        .related-title { padding: 15px; font-weight: 600; color: #fff; text-align: center; }
+        .rating { font-size: 1.8em; color: #ffd700; font-weight: bold; text-shadow: 0 2px 8px rgba(255,215,0,0.3); }
+        .detail-paragraph { margin: 25px 0; line-height: 1.9; font-size: 1.1em; text-align: justify; }
+        .highlight { color: #e50914; font-weight: 600; }
+        ul.feature-list { list-style: none; padding: 0; }
+        ul.feature-list li { padding: 12px 0; padding-left: 30px; position: relative; }
+        ul.feature-list li:before { content: "▶"; position: absolute; left: 0; color: #e50914; font-size: 0.8em; }
     </style>
     
     <!-- CSS and JS -->
@@ -673,39 +800,64 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root">
         <article class="container">
+            ${breadcrumbs}
+            
             <header>
-                <h1>${tvInfo.name || tvInfo.original_name}</h1>
+                <h1>${tvInfo.name || tvInfo.original_name} (${firstAirYear}) - Watch Full Series Online | Moviea.me</h1>
             </header>
             
             <div class="tv-header">
-                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${tvInfo.name} poster" class="tv-poster" width="300" height="450"/>` : ''}
+                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${tvInfo.name} poster - Watch online on Moviea.me" class="tv-poster" width="300" height="450" loading="eager"/>` : ''}
                 <div class="tv-info">
                     <div class="tv-meta">
                         ${firstAirYear ? `<span>📅 ${firstAirYear}</span>` : ''}
                         ${numberOfSeasons ? `<span>📺 ${numberOfSeasons} Seasons</span>` : ''}
                         ${numberOfEpisodes ? `<span>🎬 ${numberOfEpisodes} Episodes</span>` : ''}
                         ${rating !== 'N/A' ? `<span class="rating">⭐ ${rating}/10</span>` : ''}
+                        ${tvInfo.vote_count ? `<span>👥 ${tvInfo.vote_count.toLocaleString()} votes</span>` : ''}
                     </div>
                     ${genres ? `<div class="tv-meta"><span>🎭 ${genres}</span></div>` : ''}
                     ${contentRating ? `<div class="tv-meta"><span>🔞 ${contentRating}</span></div>` : ''}
-                    ${tvCreators ? `<h2>Creators</h2><div class="creator-list">${tvCreators.split(', ').map(creator => `<span class="person">${creator}</span>`).join('')}</div>` : ''}
-                    ${tvCast ? `<h2>Cast</h2><div class="cast-list">${tvCast.split(', ').map(actor => `<span class="person">${actor}</span>`).join('')}</div>` : ''}
+                    ${optimizedDescription ? `<p class="overview">${optimizedDescription}</p>` : ''}
                 </div>
             </div>
             
-            ${optimizedDescription ? `<section><h2>Overview</h2><p class="overview">${optimizedDescription}</p></section>` : ''}
+            ${trailerSection}
             
-            <section>
+            ${detailedPlot}
+            
+            ${castCrewSection}
+            
+            ${productionDetails}
+            
+            <section class="content-section">
                 <h2>Watch ${tvInfo.name || tvInfo.original_name} Online</h2>
-                <p class="overview">Stream ${tvInfo.name || tvInfo.original_name} (${firstAirYear}) in HD quality. ${getTranslation('watch_now', userLanguage)} on Moviea.me.</p>
+                <p class="detail-paragraph">Experience all ${numberOfSeasons} seasons of <span class="highlight">${tvInfo.name || tvInfo.original_name}</span> in stunning HD quality exclusively on Moviea.me. Stream all ${numberOfEpisodes} episodes with seamless playback and multiple quality options to match your internet speed. Whether you're watching on your phone, tablet, or smart TV, enjoy this ${firstAirYear} ${genres ? genres.toLowerCase() : 'series'} with crystal-clear picture and immersive audio.</p>
+                <p class="detail-paragraph">Moviea.me provides the ultimate binge-watching experience with no buffering, instant episode transitions, and a user-friendly interface. Join millions of TV enthusiasts who trust Moviea.me for their entertainment needs. Watch ${tvInfo.name || tvInfo.original_name} now and discover why we're the #1 choice for online TV show streaming.</p>
+            </section>
+            
+            ${relatedMovies}
+            
+            <section class="content-section">
+                <h2>Why Watch on Moviea.me?</h2>
+                <ul class="feature-list">
+                    <li>🎬 Extensive library with thousands of movies and TV shows</li>
+                    <li>📱 Watch on any device - mobile, tablet, desktop, or smart TV</li>
+                    <li>🌐 Multi-language support including English and Arabic</li>
+                    <li>⚡ Lightning-fast streaming with adaptive quality</li>
+                    <li>🔔 Get notified about new releases and trending content</li>
+                    <li>💯 Regular updates with the latest movies and episodes</li>
+                    <li>🎯 Personalized recommendations based on your preferences</li>
+                    <li>📺 Seamless episode auto-play for binge-watching</li>
+                </ul>
             </section>
         </article>
     </div>
 </body>
 </html>`;
             
-            // Send the enhanced SEO-optimized HTML with proper cache headers
-            res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+            // Send the enhanced SEO-optimized HTML with proper cache headers (24 hours)
+            res.setHeader('Cache-Control', 'public, max-age=86400, immutable'); // Cache for 24 hours
             res.setHeader('Vary', 'Accept-Language, Accept-Encoding');
             res.send(seoHtml);
         });
@@ -844,7 +996,7 @@ router.get('/search-page', async (req, res, next) => {
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-78N5C676M5"></script>
     <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-78N5C676M5")</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9662854573261832" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="http://resources.infolinks.com/js/infolinks_main.js"></script>
+    <script type="text/javascript" src="https://resources.infolinks.com/js/infolinks_main.js"></script>
     <meta charset="utf-8"/>
     <link rel="icon" href="./favicon.ico"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -920,4 +1072,7 @@ router.get('/search-page', async (req, res, next) => {
 });
 
 module.exports = router;
+
+
+
 
