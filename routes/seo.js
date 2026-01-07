@@ -13,7 +13,8 @@ const {
     generateTrailerSection,
     generateRelatedMovies,
     generateBreadcrumbs,
-    generateEnhancedStructuredData
+    generateEnhancedStructuredData,
+    generateUserReviews
 } = require('../seo/advancedSeoGenerator');
 
 // /tn/movie/:id - Arabic movie route for SEO
@@ -322,14 +323,14 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
         
         const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
         
-        // Attempt to fetch additional movie details like credits for enhanced SEO
-        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries&language=${userLanguage}`);
+        // Attempt to fetch additional movie details like credits, reviews for enhanced SEO
+        const response = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries,reviews&language=${userLanguage}`);
         let movieInfo = await safeJsonParse(response);
         
         // If we have the movie info and its original language, we can fetch it again with that language
         if (movieInfo && movieInfo.original_language && movieInfo.original_language !== userLanguage) {
             try {
-                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries&language=${movieInfo.original_language}`);
+                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=videos,credits,similar,release_dates,production_companies,production_countries,reviews&language=${movieInfo.original_language}`);
                 const originalLangData = await safeJsonParse(detailsInOriginalLang);
                 
                 // Merge the data, prioritizing the user language data
@@ -392,6 +393,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
             const productionDetails = generateProductionDetails(movieInfo, 'movie', userLanguage);
             const castCrewSection = generateCastCrewSection(movieInfo, 'movie', userLanguage);
             const relatedMovies = generateRelatedMovies(movieInfo, 'movie', userLanguage);
+            const userReviews = generateUserReviews(movieInfo, 'movie', userLanguage);
             
             // Create a complete SEO-optimized HTML document with semantic structure and 2000+ word content
             const seoHtml = `<!doctype html>
@@ -553,6 +555,8 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
             
             ${relatedMovies}
             
+            ${userReviews}
+            
             <section class="content-section">
                 <h2>Why Watch on Moviea.me?</h2>
                 <ul class="feature-list">
@@ -599,13 +603,13 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
         const API_KEY = process.env.API_KEY || '20108f1c4ed38f7457c479849a9999cc';
         
         // Fetch TV show details with additional data for enhanced SEO
-        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids,production_companies,production_countries&language=${userLanguage}`);
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids,production_companies,production_countries,reviews&language=${userLanguage}`);
         let tvInfo = await safeJsonParse(response);
         
         // If we have the TV info and its original language, we can fetch it again with that language
         if (tvInfo && tvInfo.original_language && tvInfo.original_language !== userLanguage) {
             try {
-                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids&language=${tvInfo.original_language}`);
+                const detailsInOriginalLang = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}&append_to_response=videos,credits,keywords,similar,content_ratings,external_ids,production_companies,production_countries,reviews&language=${tvInfo.original_language}`);
                 const originalLangData = await safeJsonParse(detailsInOriginalLang);
                 
                 // Merge the data, prioritizing the user language data
@@ -674,6 +678,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
             const productionDetails = generateProductionDetails(tvInfo, 'tv', userLanguage);
             const castCrewSection = generateCastCrewSection(tvInfo, 'tv', userLanguage);
             const relatedMovies = generateRelatedMovies(tvInfo, 'tv', userLanguage);
+            const userReviews = generateUserReviews(tvInfo, 'tv', userLanguage);
             
             // Create a complete SEO-optimized HTML document with semantic structure and 2000+ word content
             const seoHtml = `<!doctype html>
@@ -837,6 +842,8 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
             </section>
             
             ${relatedMovies}
+            
+            ${userReviews}
             
             <section class="content-section">
                 <h2>Why Watch on Moviea.me?</h2>
@@ -1072,6 +1079,7 @@ router.get('/search-page', async (req, res, next) => {
 });
 
 module.exports = router;
+
 
 
 

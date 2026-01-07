@@ -6,7 +6,7 @@
 /**
  * Generate detailed plot sections (2000+ words for top ranking)
  */
-function generateDetailedPlot(movieInfo, language = 'en') {
+function generateDetailedPlot(movieInfo, type = 'movie', language = 'en') {
     const overview = movieInfo.overview || '';
     if (!overview) return '';
     
@@ -32,7 +32,7 @@ function generateDetailedPlot(movieInfo, language = 'en') {
 /**
  * Generate production details section
  */
-function generateProductionDetails(movieInfo, credits, language = 'en') {
+function generateProductionDetails(movieInfo, type = 'movie', language = 'en') {
     const releaseDate = movieInfo.release_date || movieInfo.first_air_date;
     const budget = movieInfo.budget;
     const revenue = movieInfo.revenue;
@@ -58,7 +58,8 @@ function generateProductionDetails(movieInfo, credits, language = 'en') {
 /**
  * Generate cast and crew section with detailed info
  */
-function generateCastCrewSection(credits, language = 'en') {
+function generateCastCrewSection(movieInfo, type = 'movie', language = 'en') {
+    const credits = movieInfo.credits;
     if (!credits) return '';
     
     const cast = credits.cast ? credits.cast.slice(0, 15) : [];
@@ -114,7 +115,10 @@ function generateCastCrewSection(credits, language = 'en') {
 /**
  * Generate trailer section
  */
-function generateTrailerSection(videos, movieTitle) {
+function generateTrailerSection(movieInfo, type = 'movie', language = 'en') {
+    const videos = movieInfo.videos;
+    const movieTitle = movieInfo.title || movieInfo.name || movieInfo.original_title || movieInfo.original_name;
+    
     if (!videos || !videos.results || videos.results.length === 0) return '';
     
     const trailer = videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube') || videos.results[0];
@@ -142,7 +146,8 @@ function generateTrailerSection(videos, movieTitle) {
 /**
  * Generate related/similar movies section
  */
-function generateRelatedMovies(similar, type = 'movie') {
+function generateRelatedMovies(movieInfo, type = 'movie', language = 'en') {
+    const similar = movieInfo.similar;
     if (!similar || !similar.results || similar.results.length === 0) return '';
     
     const movies = similar.results.slice(0, 10);
@@ -168,7 +173,7 @@ function generateRelatedMovies(similar, type = 'movie') {
 /**
  * Generate breadcrumb navigation
  */
-function generateBreadcrumbs(movieInfo, type = 'movie', movieId) {
+function generateBreadcrumbs(movieInfo, type = 'movie', contentUrl, language = 'en') {
     const title = movieInfo.title || movieInfo.name || movieInfo.original_title || movieInfo.original_name;
     const mainGenre = movieInfo.genres && movieInfo.genres.length > 0 ? movieInfo.genres[0].name.toLowerCase().replace(' ', '-') : type;
     
@@ -316,6 +321,55 @@ function generateEnhancedStructuredData(movieInfo, type, imageUrl, contentUrl, v
     return JSON.stringify(schemas, null, 2);
 }
 
+/**
+ * Generate user reviews section from TMDB
+ */
+function generateUserReviews(movieInfo, type = 'movie', language = 'en') {
+    // Check if reviews data exists in movieInfo
+    const reviews = movieInfo.reviews && movieInfo.reviews.results ? movieInfo.reviews.results : [];
+    
+    if (reviews.length === 0) {
+        return '';
+    }
+    
+    // Take top 5 reviews
+    const topReviews = reviews.slice(0, 5);
+    
+    return `
+        <section class="content-section user-reviews">
+            <h2>User Reviews & Ratings</h2>
+            <p class="detail-paragraph">See what viewers are saying about ${movieInfo.title || movieInfo.name || movieInfo.original_title || movieInfo.original_name}. Real reviews from TMDB community members:</p>
+            <div class="reviews-container">
+                ${topReviews.map(review => {
+                    const author = review.author || 'Anonymous';
+                    const rating = review.author_details?.rating;
+                    const content = review.content || '';
+                    const date = review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+                    
+                    // Truncate long reviews to 500 characters
+                    const shortContent = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                    
+                    return `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="review-author">
+                                <strong>👤 ${author}</strong>
+                                ${rating ? `<span class="review-rating">⭐ ${rating}/10</span>` : ''}
+                            </div>
+                            ${date ? `<span class="review-date">📅 ${date}</span>` : ''}
+                        </div>
+                        <div class="review-content">
+                            <p>${shortContent.replace(/\n/g, '<br>')}</p>
+                        </div>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+            <p class="detail-paragraph">These authentic user reviews provide valuable insights into the viewing experience. Join thousands of movie enthusiasts sharing their opinions on Moviea.me.</p>
+        </section>
+    `;
+}
+
 module.exports = {
     generateDetailedPlot,
     generateProductionDetails,
@@ -323,5 +377,6 @@ module.exports = {
     generateTrailerSection,
     generateRelatedMovies,
     generateBreadcrumbs,
-    generateEnhancedStructuredData
+    generateEnhancedStructuredData,
+    generateUserReviews
 };
