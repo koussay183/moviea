@@ -1,8 +1,8 @@
 {
   "files": {
     "main.css": "./static/css/main.aed9ae43.css",
-    "main.js": "./static/js/main.f877118e.js",
-    "static/js/933.ed4316a4.chunk.js": "./static/js/933.ed4316a4.chunk.js",
+    "main.js": "./static/js/main.2874d323.js",
+    "static/js/933.eabad910.chunk.js": "./static/js/933.eabad910.chunk.js",
     "static/css/915.cb9abb9b.chunk.css": "./static/css/915.cb9abb9b.chunk.css",
     "static/js/915.1ddfb106.chunk.js": "./static/js/915.1ddfb106.chunk.js",
     "static/css/637.f4379473.chunk.css": "./static/css/637.f4379473.chunk.css",
@@ -25,7 +25,7 @@
     "row.js": "./static/js/row.4cd72bdc.chunk.js",
     "shorts-row.js": "./static/js/shorts-row.9d764596.chunk.js",
     "reels-page.js": "./static/js/reels-page.6b276d08.chunk.js",
-    "search-page.js": "./static/js/search-page.904351fe.chunk.js",
+    "search-page.js": "./static/js/search-page.bf4d8181.chunk.js",
     "under.js": "./static/js/under.3c03a137.chunk.js",
     "user-profile.js": "./static/js/user-profile.a78e46ad.chunk.js",
     "privacy-policy.js": "./static/js/privacy-policy.c2ceda68.chunk.js",
@@ -54,6 +54,6 @@
   },
   "entrypoints": [
     "static/css/main.aed9ae43.css",
-    "static/js/main.f877118e.js"
+    "static/js/main.2874d323.js"
   ]
 }
