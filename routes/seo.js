@@ -50,7 +50,7 @@ router.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
             
             // Use the SEO helpers to generate optimized content
             const contentName = movieInfo.name_ar || movieInfo.name_en;
-            const contentUrl = `https://moviea.tn/tn/movie/${movieId}`;
+            const contentUrl = `https://moviea.me/tn/movie/${movieId}`;
             const imageUrl = movieInfo.previewImageUrl || '';
             
             // Create Arabic content object in the format our helper functions expect
@@ -104,7 +104,7 @@ router.get(/^\/tn\/movie\/(\d+)$/, async (req, res, next) => {
     <meta property="og:description" content="${optimizedDescription}"/>
     <meta property="og:image" content="${imageUrl}"/>
     <meta property="og:url" content="${contentUrl}"/>
-    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="ar_TN"/>
     
     <!-- Twitter Card data -->
@@ -194,7 +194,7 @@ router.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
             
             // Use the SEO helpers to generate optimized content
             const contentName = tvInfo.name_ar || tvInfo.name_en;
-            const contentUrl = `https://moviea.tn/tn/tv/${tvId}`;
+            const contentUrl = `https://moviea.me/tn/tv/${tvId}`;
             const imageUrl = tvInfo.previewImageUrl || '';
             
             // Create Arabic content object in the format our helper functions expect
@@ -248,7 +248,7 @@ router.get(/^\/tn\/tv\/(\d+)$/, async (req, res, next) => {
     <meta property="og:description" content="${optimizedDescription}"/>
     <meta property="og:image" content="${imageUrl}"/>
     <meta property="og:url" content="${contentUrl}"/>
-    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="ar_TN"/>
     
     <!-- Twitter Card data -->
@@ -354,7 +354,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
                 (movieInfo.poster_path ? `https://image.tmdb.org/t/p/w780/${movieInfo.poster_path}` : '');
                 
             // Use our SEO helper functions for optimized content
-            const contentUrl = `https://moviea.tn/all-about/movie/${movieId}`;
+            const contentUrl = `https://moviea.me/all-about/movie/${movieId}`;
             const optimizedTitle = generateTitle(movieInfo, 'movie', userLanguage);
             const optimizedDescription = movieInfo.overview || `${getTranslation('watch_now', userLanguage)} ${movieInfo.title || movieInfo.original_title} ${getTranslation('online', userLanguage)}`;
             const optimizedKeywords = generateKeywords(movieInfo, 'movie', userLanguage);
@@ -372,7 +372,13 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
             const movieDirector = movieInfo.credits && movieInfo.credits.crew ? 
                 movieInfo.credits.crew.find(person => person.job === 'Director')?.name : '';
                 
-            // Create a complete SEO-optimized HTML document
+            // Extract genres for display
+            const genres = movieInfo.genres ? movieInfo.genres.map(g => g.name).join(', ') : '';
+            const releaseYear = movieInfo.release_date ? new Date(movieInfo.release_date).getFullYear() : '';
+            const rating = movieInfo.vote_average ? movieInfo.vote_average.toFixed(1) : 'N/A';
+            const runtime = movieInfo.runtime ? `${movieInfo.runtime} min` : '';
+            
+            // Create a complete SEO-optimized HTML document with semantic structure
             const seoHtml = `<!doctype html>
 <html lang="${userLanguage}">
 <head>
@@ -404,7 +410,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <meta property="og:image:width" content="1280"/>
     <meta property="og:image:height" content="720"/>
     <meta property="og:url" content="${contentUrl}"/>
-    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
     
     <!-- Twitter Card data -->
@@ -414,7 +420,7 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <meta name="twitter:image" content="${imageUrlLarge}">
     
     <!-- Structured Data for SEO - Enhanced with additional details -->
-    <script type="application/ld+json">${structuredData}</script>
+    <script type="application/ld+json">${JSON.stringify(structuredData)}</script>
     
     <!-- Enhanced Link Tags -->
     <link rel="canonical" href="${contentUrl}"/>
@@ -432,13 +438,56 @@ router.get(/^\/all-about\/movie\/(\d+)$/, async (req, res, next) => {
     <link rel="preload" href="./static/css/main.291b9921.css" as="style">
     ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
     
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #000; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 2.5em; margin: 20px 0; color: #fff; }
+        .movie-header { display: flex; gap: 30px; margin: 30px 0; flex-wrap: wrap; }
+        .movie-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 8px; }
+        .movie-info { flex: 1; min-width: 300px; }
+        .movie-meta { display: flex; gap: 20px; margin: 15px 0; flex-wrap: wrap; color: #aaa; }
+        .movie-meta span { background: #222; padding: 5px 15px; border-radius: 4px; }
+        h2 { font-size: 1.8em; margin: 30px 0 15px; color: #fff; border-bottom: 2px solid #e50914; padding-bottom: 10px; }
+        .overview { line-height: 1.6; font-size: 1.1em; color: #ddd; }
+        .cast-list, .crew-list { display: flex; gap: 15px; flex-wrap: wrap; }
+        .person { background: #1a1a1a; padding: 10px 15px; border-radius: 4px; }
+        .rating { font-size: 1.5em; color: #ffd700; font-weight: bold; }
+    </style>
+    
     <!-- CSS and JS -->
     <script defer="defer" src="./static/js/main.3867268b.js"></script>
     <link href="./static/css/main.291b9921.css" rel="stylesheet">
 </head>
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+        <article class="container">
+            <header>
+                <h1>${movieInfo.title || movieInfo.original_title}</h1>
+            </header>
+            
+            <div class="movie-header">
+                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${movieInfo.title} poster" class="movie-poster" width="300" height="450"/>` : ''}
+                <div class="movie-info">
+                    <div class="movie-meta">
+                        ${releaseYear ? `<span>📅 ${releaseYear}</span>` : ''}
+                        ${runtime ? `<span>⏱️ ${runtime}</span>` : ''}
+                        ${rating !== 'N/A' ? `<span class="rating">⭐ ${rating}/10</span>` : ''}
+                    </div>
+                    ${genres ? `<div class="movie-meta"><span>🎭 ${genres}</span></div>` : ''}
+                    ${movieDirector ? `<h2>Director</h2><p class="overview">${movieDirector}</p>` : ''}
+                    ${movieCast ? `<h2>Cast</h2><div class="cast-list">${movieCast.split(', ').map(actor => `<span class="person">${actor}</span>`).join('')}</div>` : ''}
+                </div>
+            </div>
+            
+            ${optimizedDescription ? `<section><h2>Overview</h2><p class="overview">${optimizedDescription}</p></section>` : ''}
+            
+            <section>
+                <h2>Watch ${movieInfo.title || movieInfo.original_title} Online</h2>
+                <p class="overview">Stream ${movieInfo.title || movieInfo.original_title} (${releaseYear}) in HD quality. ${getTranslation('watch_now', userLanguage)} on Moviea.me.</p>
+            </section>
+        </article>
+    </div>
 </body>
 </html>`;
             
@@ -511,7 +560,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
                 (tvInfo.poster_path ? `https://image.tmdb.org/t/p/w780/${tvInfo.poster_path}` : '');
                 
             // Use our SEO helper functions for optimized content
-            const contentUrl = `https://moviea.tn/all-about/tv/${tvId}`;
+            const contentUrl = `https://moviea.me/all-about/tv/${tvId}`;
             const optimizedTitle = generateTitle(tvInfo, 'tv', userLanguage);
             const optimizedDescription = tvInfo.overview || `${getTranslation('watch_now', userLanguage)} ${tvInfo.name || tvInfo.original_name} ${getTranslation('online', userLanguage)}`;
             const optimizedKeywords = generateKeywords(tvInfo, 'tv', userLanguage);
@@ -530,7 +579,14 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
                 tvInfo.content_ratings.results.find(rating => rating.iso_3166_1 === userCountry)?.rating || 
                 tvInfo.content_ratings.results.find(rating => rating.iso_3166_1 === 'US')?.rating : '';
             
-            // Create a complete SEO-optimized HTML document
+            // Extract additional info for display
+            const genres = tvInfo.genres ? tvInfo.genres.map(g => g.name).join(', ') : '';
+            const firstAirYear = tvInfo.first_air_date ? new Date(tvInfo.first_air_date).getFullYear() : '';
+            const rating = tvInfo.vote_average ? tvInfo.vote_average.toFixed(1) : 'N/A';
+            const numberOfSeasons = tvInfo.number_of_seasons || 0;
+            const numberOfEpisodes = tvInfo.number_of_episodes || 0;
+            
+            // Create a complete SEO-optimized HTML document with semantic structure
             const seoHtml = `<!doctype html>
 <html lang="${userLanguage}">
 <head>
@@ -563,7 +619,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <meta property="og:image:width" content="1280"/>
     <meta property="og:image:height" content="720"/>
     <meta property="og:url" content="${contentUrl}"/>
-    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
     ${tvInfo.number_of_seasons ? `<meta property="video:series" content="true"/>` : ''}
     ${tvInfo.number_of_seasons ? `<meta property="video:release_date" content="${tvInfo.first_air_date}"/>` : ''}
@@ -575,7 +631,7 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <meta name="twitter:image" content="${imageUrlLarge}">
     
     <!-- Structured Data for SEO - Enhanced with additional details -->
-    <script type="application/ld+json">${structuredData}</script>
+    <script type="application/ld+json">${JSON.stringify(structuredData)}</script>
     
     <!-- Enhanced Link Tags -->
     <link rel="canonical" href="${contentUrl}"/>
@@ -593,13 +649,58 @@ router.get(/^\/all-about\/tv\/(\d+)$/, async (req, res, next) => {
     <link rel="preload" href="./static/css/main.291b9921.css" as="style">
     ${imageUrlLarge ? `<link rel="preload" href="${imageUrlLarge}" as="image">` : ''}
     
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 20px; background: #000; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 2.5em; margin: 20px 0; color: #fff; }
+        .tv-header { display: flex; gap: 30px; margin: 30px 0; flex-wrap: wrap; }
+        .tv-poster { width: 300px; height: 450px; object-fit: cover; border-radius: 8px; }
+        .tv-info { flex: 1; min-width: 300px; }
+        .tv-meta { display: flex; gap: 20px; margin: 15px 0; flex-wrap: wrap; color: #aaa; }
+        .tv-meta span { background: #222; padding: 5px 15px; border-radius: 4px; }
+        h2 { font-size: 1.8em; margin: 30px 0 15px; color: #fff; border-bottom: 2px solid #e50914; padding-bottom: 10px; }
+        .overview { line-height: 1.6; font-size: 1.1em; color: #ddd; }
+        .cast-list, .creator-list { display: flex; gap: 15px; flex-wrap: wrap; }
+        .person { background: #1a1a1a; padding: 10px 15px; border-radius: 4px; }
+        .rating { font-size: 1.5em; color: #ffd700; font-weight: bold; }
+    </style>
+    
     <!-- CSS and JS -->
     <script defer="defer" src="./static/js/main.3867268b.js"></script>
     <link href="./static/css/main.291b9921.css" rel="stylesheet">
 </head>
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+        <article class="container">
+            <header>
+                <h1>${tvInfo.name || tvInfo.original_name}</h1>
+            </header>
+            
+            <div class="tv-header">
+                ${imageUrlLarge ? `<img src="${imageUrlLarge}" alt="${tvInfo.name} poster" class="tv-poster" width="300" height="450"/>` : ''}
+                <div class="tv-info">
+                    <div class="tv-meta">
+                        ${firstAirYear ? `<span>📅 ${firstAirYear}</span>` : ''}
+                        ${numberOfSeasons ? `<span>📺 ${numberOfSeasons} Seasons</span>` : ''}
+                        ${numberOfEpisodes ? `<span>🎬 ${numberOfEpisodes} Episodes</span>` : ''}
+                        ${rating !== 'N/A' ? `<span class="rating">⭐ ${rating}/10</span>` : ''}
+                    </div>
+                    ${genres ? `<div class="tv-meta"><span>🎭 ${genres}</span></div>` : ''}
+                    ${contentRating ? `<div class="tv-meta"><span>🔞 ${contentRating}</span></div>` : ''}
+                    ${tvCreators ? `<h2>Creators</h2><div class="creator-list">${tvCreators.split(', ').map(creator => `<span class="person">${creator}</span>`).join('')}</div>` : ''}
+                    ${tvCast ? `<h2>Cast</h2><div class="cast-list">${tvCast.split(', ').map(actor => `<span class="person">${actor}</span>`).join('')}</div>` : ''}
+                </div>
+            </div>
+            
+            ${optimizedDescription ? `<section><h2>Overview</h2><p class="overview">${optimizedDescription}</p></section>` : ''}
+            
+            <section>
+                <h2>Watch ${tvInfo.name || tvInfo.original_name} Online</h2>
+                <p class="overview">Stream ${tvInfo.name || tvInfo.original_name} (${firstAirYear}) in HD quality. ${getTranslation('watch_now', userLanguage)} on Moviea.me.</p>
+            </section>
+        </article>
+    </div>
 </body>
 </html>`;
             
@@ -669,8 +770,8 @@ router.get('/search-page', async (req, res, next) => {
             
             // Create content for SEO
             const contentUrl = `${BASE_URL}/search-page?q=${encodeURIComponent(query)}${page > 1 ? `&page=${page}` : ''}`;
-            const optimizedTitle = `Search results for "${query}" - Moviea.tn`;
-            const optimizedDescription = `Find movies, TV shows, and people matching "${query}" - Page ${page} of search results on Moviea.tn.`;
+            const optimizedTitle = `Search results for "${query}" - Moviea.me`;
+            const optimizedDescription = `Find movies, TV shows, and people matching "${query}" - Page ${page} of search results on Moviea.me.`;
             const optimizedKeywords = `${query}, movies, search, tv shows, films, series, actors, online streaming`;
             
             // Format top results for structured data
@@ -724,7 +825,7 @@ router.get('/search-page', async (req, res, next) => {
                 'isPartOf': {
                     '@type': 'WebSite',
                     'url': BASE_URL,
-                    'name': 'Moviea.tn',
+                    'name': 'Moviea.me',
                     'potentialAction': {
                         '@type': 'SearchAction',
                         'target': `${BASE_URL}/search-page?q={search_term_string}`,
@@ -761,7 +862,7 @@ router.get('/search-page', async (req, res, next) => {
     <meta property="og:description" content="${optimizedDescription}"/>
     ${imageUrl ? `<meta property="og:image" content="${imageUrl}"/>` : ''}
     <meta property="og:url" content="${contentUrl}"/>
-    <meta property="og:site_name" content="Moviea.tn"/>
+    <meta property="og:site_name" content="Moviea.me"/>
     <meta property="og:locale" content="${userLanguage}_${userCountry || userLanguage.toUpperCase()}"/>
     
     <!-- Accessibility and Semantic Web Metadata -->
@@ -819,3 +920,4 @@ router.get('/search-page', async (req, res, next) => {
 });
 
 module.exports = router;
+

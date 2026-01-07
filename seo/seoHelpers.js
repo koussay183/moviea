@@ -12,17 +12,17 @@
  * @returns {string} SEO optimized title
  */
 function generateTitle(data, type) {
-    if (!data) return 'Moviea.tn - Watch Movies & TV Shows Online';
+    if (!data) return 'Moviea.me - Watch Movies & TV Shows Online';
     
     let title = '';
     
     switch (type) {
         case 'movie':
             const year = data.release_date ? new Date(data.release_date).getFullYear() : '';
-            title = `${data.title || data.original_title} (${year}) - Watch Online on Moviea.tn`;
+            title = `${data.title || data.original_title} (${year}) - Watch Online on Moviea.me`;
             break;
         case 'tv':
-            title = `${data.name || data.original_name} - Watch TV Series Online on Moviea.tn`;
+            title = `${data.name || data.original_name} - Watch TV Series Online on Moviea.me`;
             break;
         case 'season':
             title = `${data.name || data.original_name} Season ${data.season_number} - Watch Episodes Online`;
